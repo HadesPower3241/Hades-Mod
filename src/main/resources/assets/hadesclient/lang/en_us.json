@@ -3,7 +3,5 @@
   "key.category.hadesclient.main": "Hades Client",
   "key.hadesclient.menu": "Open Menu",
   "key.hadesclient.hudeditor": "Open HUD Editor",
-  "key.hadesclient.zoom": "Zoom",
-  "key.hadesclient.ping": "Ping Target",
-  "key.hadesclient.clearpings": "Clear Pings"
+  "key.hadesclient.zoom": "Zoom"
 }

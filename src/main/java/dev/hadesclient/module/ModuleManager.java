@@ -3,7 +3,6 @@ package dev.hadesclient.module;
 import com.google.gson.JsonObject;
 import dev.hadesclient.HadesClient;
 import dev.hadesclient.module.impl.ProcNotifierModule;
-import dev.hadesclient.module.impl.TargetPingModule;
 import dev.hadesclient.module.impl.ToggleSneakModule;
 import dev.hadesclient.module.impl.ToggleSprintModule;
 import dev.hadesclient.module.impl.ZoomModule;
@@ -19,7 +18,6 @@ public final class ModuleManager {
     private final Map<String, Module> modules = new LinkedHashMap<>();
 
     public ModuleManager() {
-        register(new TargetPingModule());
         register(new ProcNotifierModule());
         register(new ToggleSprintModule());
         register(new ToggleSneakModule());

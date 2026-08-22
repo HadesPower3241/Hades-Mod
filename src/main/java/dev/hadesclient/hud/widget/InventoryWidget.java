@@ -1,6 +1,7 @@
 package dev.hadesclient.hud.widget;
 
 import dev.hadesclient.hud.HudWidget;
+import dev.hadesclient.module.Setting;
 import dev.hadesclient.render.Draw;
 import dev.hadesclient.theme.Color;
 import dev.hadesclient.theme.Theme;
@@ -10,8 +11,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.collection.DefaultedList;
 
 /**
- * Mirrors the whole inventory on screen: the 3x9 main grid you normally can't
- * see, plus optional armour, offhand and hotbar rows.
+ * Mirrors the inventory on screen: the 3x9 main grid you normally cannot see,
+ * plus whichever extra rows the chosen layout includes.
  *
  * <p>Nothing is cached. Every frame reads the client's own live inventory, so
  * the panel is exactly one frame behind reality — the same latency as opening
@@ -20,43 +21,61 @@ import net.minecraft.util.collection.DefaultedList;
 public final class InventoryWidget extends HudWidget {
 
     private static final int CELL = 18;
-    private static final int PAD = 5;
-    private static final int GAP = 4;
     private static final int COLUMNS = 9;
 
     private static final EquipmentSlot[] ARMOUR = {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
 
-    private boolean showArmour = true;
-    private boolean showHotbar = false;
-    private boolean showCounts = true;
+    /** Which rows the layout draws. Index order must match the Mode options. */
+    private static final boolean[][] LAYOUTS = {
+            // {armour, hotbar}
+            {false, false},  // Main Only
+            {true, false},   // Main + Armour
+            {false, true},   // Main + Hotbar
+            {true, true},    // Everything
+            {false, false},  // Compact
+    };
+
+    private final Setting.Mode layout = setting(new Setting.Mode("layout", "Layout", 1,
+            "Main Only", "Main + Armour", "Main + Hotbar", "Everything", "Compact"));
+    private final Setting.Bool counts = setting(
+            new Setting.Bool("counts", "Stack counts", true));
+    private final Setting.Bool slotBacks = setting(
+            new Setting.Bool("slots", "Slot backgrounds", true));
+    private final Setting.Bool highlight = setting(
+            new Setting.Bool("highlight", "Highlight held slot", true));
+    private final Setting.Number opacity = setting(
+            new Setting.Number("opacity", "Panel opacity", 82, 0, 100, 5, true));
 
     public InventoryWidget() {
         super("inventory", "Inventory HUD");
         defaults(Anchor.TOP_LEFT, 8f, 60f, true);
     }
 
-    public boolean showArmour() { return showArmour; }
+    @Override
+    public String description() {
+        return enabled() ? layout.get() : "Hidden";
+    }
 
-    public void showArmour(boolean value) { this.showArmour = value; }
+    private boolean compact() { return layout.index() == 4; }
 
-    public boolean showHotbar() { return showHotbar; }
+    private boolean showArmour() { return LAYOUTS[layout.index()][0]; }
 
-    public void showHotbar(boolean value) { this.showHotbar = value; }
+    private boolean showHotbar() { return LAYOUTS[layout.index()][1]; }
 
-    public boolean showCounts() { return showCounts; }
+    private int pad() { return compact() ? 2 : 5; }
 
-    public void showCounts(boolean value) { this.showCounts = value; }
+    private int gap() { return compact() ? 2 : 4; }
 
     private int panelWidth() {
-        return PAD * 2 + COLUMNS * CELL;
+        return pad() * 2 + COLUMNS * CELL;
     }
 
     private int panelHeight() {
-        int h = PAD * 2 + CELL * 3;
-        if (showArmour) h += CELL + GAP;
-        if (showHotbar) h += CELL + GAP;
+        int h = pad() * 2 + CELL * 3;
+        if (showArmour()) h += CELL + gap();
+        if (showHotbar()) h += CELL + gap();
         return h;
     }
 
@@ -67,53 +86,68 @@ public final class InventoryWidget extends HudWidget {
 
         DefaultedList<ItemStack> stacks = mc().player.getInventory().getMainStacks();
         int selected = mc().player.getInventory().getSelectedSlot();
+        float alpha = (float) opacity.get() / 100f;
+        int pad = pad();
+        int gap = gap();
 
-        // Panel: soft shadow, glass fill, hairline stroke — same language as the menu.
-        Draw.shadow(g, x, y + 1, width, height, 7f, 6, Color.rgb(0, 0, 0).alpha(0.8f));
-        Draw.roundRect(g, x, y, width, height, 7f, theme.panel().alpha(0.82f));
-        Draw.roundOutline(g, x, y, width, height, 7f, 1f, theme.stroke().alpha(0.75f));
+        if (alpha > 0.01f) {
+            if (!compact()) {
+                Draw.shadow(g, x, y + 1, width, height, 7f, 6, Color.rgb(0, 0, 0).alpha(0.8f * alpha));
+            }
+            Draw.roundRect(g, x, y, width, height, compact() ? 3f : 7f, theme.panel().alpha(alpha));
+            Draw.roundOutline(g, x, y, width, height, compact() ? 3f : 7f, 1f,
+                    theme.stroke().alpha(0.75f * alpha));
+        }
 
-        float row = y + PAD;
+        float row = y + pad;
 
-        if (showArmour) {
+        if (showArmour()) {
             for (int i = 0; i < ARMOUR.length; i++) {
-                slot(g, theme, mc().player.getEquippedStack(ARMOUR[i]), x + PAD + i * CELL, row, false);
+                slot(g, theme, mc().player.getEquippedStack(ARMOUR[i]), x + pad + i * CELL, row, false);
             }
             slot(g, theme, mc().player.getEquippedStack(EquipmentSlot.OFFHAND),
-                    x + PAD + (COLUMNS - 1) * CELL, row, false);
-            row += CELL + GAP;
-            Draw.rect(g, x + PAD, row - GAP / 2f, width - PAD * 2, 1, theme.stroke().alpha(0.5f));
+                    x + pad + (COLUMNS - 1) * CELL, row, false);
+            row += CELL + gap;
+            divider(g, theme, x + pad, row - gap / 2f, width - pad * 2, alpha);
         }
 
         for (int line = 0; line < 3; line++) {
             for (int col = 0; col < COLUMNS; col++) {
                 slot(g, theme, stacks.get(9 + line * COLUMNS + col),
-                        x + PAD + col * CELL, row + line * CELL, false);
+                        x + pad + col * CELL, row + line * CELL, false);
             }
         }
         row += CELL * 3;
 
-        if (showHotbar) {
-            row += GAP;
-            Draw.rect(g, x + PAD, row - GAP / 2f, width - PAD * 2, 1, theme.stroke().alpha(0.5f));
+        if (showHotbar()) {
+            row += gap;
+            divider(g, theme, x + pad, row - gap / 2f, width - pad * 2, alpha);
             for (int col = 0; col < COLUMNS; col++) {
-                slot(g, theme, stacks.get(col), x + PAD + col * CELL, row, col == selected);
+                slot(g, theme, stacks.get(col), x + pad + col * CELL, row,
+                        highlight.get() && col == selected);
             }
         }
     }
 
-    private void slot(DrawContext g, Theme theme, ItemStack stack, float cellX, float cellY, boolean highlight) {
+    private void divider(DrawContext g, Theme theme, float x, float y, float w, float alpha) {
+        if (compact() || alpha <= 0.01f) return;
+        Draw.rect(g, x, y, w, 1, theme.stroke().alpha(0.5f * alpha));
+    }
+
+    private void slot(DrawContext g, Theme theme, ItemStack stack, float cellX, float cellY, boolean marked) {
         float sx = cellX + 1;
         float sy = cellY + 1;
 
-        Draw.roundRect(g, sx - 1, sy - 1, 18, 18, 3f, theme.raised().alpha(0.55f));
-        if (highlight) {
-            Draw.roundOutline(g, sx - 1, sy - 1, 18, 18, 3f, 1f, theme.accent());
+        if (slotBacks.get()) {
+            Draw.roundRect(g, sx - 1, sy - 1, 18, 18, compact() ? 1f : 3f, theme.raised().alpha(0.55f));
+        }
+        if (marked) {
+            Draw.roundOutline(g, sx - 1, sy - 1, 18, 18, compact() ? 1f : 3f, 1f, theme.accent());
         }
         if (stack == null || stack.isEmpty()) return;
 
         g.drawItem(stack, Math.round(sx), Math.round(sy));
-        if (showCounts) {
+        if (counts.get()) {
             g.drawStackOverlay(Draw.font(), stack, Math.round(sx), Math.round(sy));
         }
     }

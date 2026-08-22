@@ -4,13 +4,15 @@ import com.google.gson.JsonObject;
 import dev.hadesclient.HadesClient;
 import dev.hadesclient.hud.widget.ArmourWidget;
 import dev.hadesclient.hud.widget.ClockWidget;
+import dev.hadesclient.hud.widget.CooldownWidget;
 import dev.hadesclient.hud.widget.CoordsWidget;
 import dev.hadesclient.hud.widget.DirectionWidget;
+import dev.hadesclient.hud.widget.EffectTimersWidget;
 import dev.hadesclient.hud.widget.FpsWidget;
 import dev.hadesclient.hud.widget.InventoryWidget;
 import dev.hadesclient.hud.widget.PingWidget;
 import dev.hadesclient.hud.widget.ProcWidget;
-import dev.hadesclient.hud.widget.TargetsWidget;
+import dev.hadesclient.hud.widget.TrackedValuesWidget;
 import dev.hadesclient.theme.Theme;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -30,13 +32,15 @@ public final class HudManager {
 
     public HudManager() {
         register(new InventoryWidget());
+        register(new CooldownWidget());
+        register(new EffectTimersWidget());
+        register(new TrackedValuesWidget());
         register(new ProcWidget());
-        register(new TargetsWidget());
+        register(new ArmourWidget());
         register(new FpsWidget());
         register(new CoordsWidget());
         register(new PingWidget());
         register(new ClockWidget());
-        register(new ArmourWidget());
         register(new DirectionWidget());
     }
 
@@ -58,6 +62,11 @@ public final class HudManager {
 
     public boolean suspended() {
         return suspended;
+    }
+
+    /** Put every widget back to its starting position and scale. */
+    public void resetAll() {
+        for (HudWidget widget : widgets.values()) widget.resetPosition();
     }
 
     /** Called once per frame from the HUD layer. */

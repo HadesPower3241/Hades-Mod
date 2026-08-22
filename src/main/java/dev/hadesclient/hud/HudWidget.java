@@ -1,9 +1,13 @@
 package dev.hadesclient.hud;
 
 import com.google.gson.JsonObject;
+import dev.hadesclient.module.Setting;
 import dev.hadesclient.theme.Theme;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A movable, resizable overlay element.
@@ -11,6 +15,10 @@ import net.minecraft.client.gui.DrawContext;
  * <p>Position is stored as a corner anchor plus an offset rather than raw
  * coordinates, so a widget parked in the bottom-right stays in the
  * bottom-right when the window is resized or the GUI scale changes.</p>
+ *
+ * <p>Widgets carry their own settings using the same {@link Setting} types
+ * modules use, which is what lets the menu build a settings panel for any
+ * widget without knowing anything about it.</p>
  */
 public abstract class HudWidget {
 
@@ -18,6 +26,7 @@ public abstract class HudWidget {
 
     private final String id;
     private final String name;
+    private final List<Setting> settings = new ArrayList<>();
 
     private Anchor anchor = Anchor.TOP_LEFT;
     private float offsetX = 8f;
@@ -41,9 +50,19 @@ public abstract class HudWidget {
         this.enabled = enabled;
     }
 
+    protected <T extends Setting> T setting(T setting) {
+        settings.add(setting);
+        return setting;
+    }
+
+    public List<Setting> settings() { return settings; }
+
     public String id() { return id; }
 
     public String name() { return name; }
+
+    /** Shown under the widget name on its card. */
+    public String description() { return enabled ? "Shown on the HUD" : "Hidden"; }
 
     public boolean enabled() { return enabled; }
 
@@ -52,6 +71,10 @@ public abstract class HudWidget {
     public float scale() { return scale; }
 
     public void scale(float scale) { this.scale = Math.max(0.5f, Math.min(2.5f, scale)); }
+
+    public double scaleAsDouble() { return scale; }
+
+    public void scaleFromDouble(double scale) { scale((float) scale); }
 
     public float scaledWidth() { return width * scale; }
 
@@ -92,6 +115,14 @@ public abstract class HudWidget {
         offsetY = top ? py : screenHeight - py - sh;
     }
 
+    /** Put this widget back where it started. */
+    public void resetPosition() {
+        anchor = Anchor.TOP_LEFT;
+        offsetX = 8f;
+        offsetY = 8f;
+        scale = 1f;
+    }
+
     // ----------------------------------------------------------- rendering
 
     /** Draw at (x, y) and record the measured size via {@link #size}. */
@@ -106,6 +137,7 @@ public abstract class HudWidget {
         json.addProperty("x", offsetX);
         json.addProperty("y", offsetY);
         json.addProperty("scale", scale);
+        for (Setting setting : settings) setting.save(json);
         return json;
     }
 
@@ -116,6 +148,7 @@ public abstract class HudWidget {
             if (json.has("x")) offsetX = json.get("x").getAsFloat();
             if (json.has("y")) offsetY = json.get("y").getAsFloat();
             if (json.has("scale")) scale(json.get("scale").getAsFloat());
+            for (Setting setting : settings) setting.load(json);
         } catch (Exception ignored) {
             // Malformed entry: keep the defaults.
         }

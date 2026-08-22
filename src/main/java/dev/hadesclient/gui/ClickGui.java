@@ -18,6 +18,7 @@ import dev.hadesclient.ui.widget.ScrollPane;
 import dev.hadesclient.ui.widget.Slider;
 import dev.hadesclient.ui.widget.TextBox;
 import dev.hadesclient.ui.widget.Toggle;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 
 import java.util.ArrayList;
@@ -26,8 +27,8 @@ import java.util.Locale;
 
 /**
  * The main menu: a floating glass window with a tab bar, a category sidebar,
- * and a paged grid of cards. Right-click a card (or click its gear) to open
- * that module's settings.
+ * and a paged grid of cards. Modules and HUD widgets both get settings panels,
+ * built generically from whatever {@link Setting} objects they declare.
  */
 public final class ClickGui extends UiScreen {
 
@@ -40,6 +41,7 @@ public final class ClickGui extends UiScreen {
     private static final float SIDEBAR = 118f;
     private static final float CARD_H = 74f;
     private static final float GAP = 8f;
+    private static final float ROW_H = 30f;
     private static final int PER_PAGE = 6;
 
     private static String lastTab = TAB_MODS;
@@ -49,9 +51,13 @@ public final class ClickGui extends UiScreen {
 
     private String tab = lastTab;
     private Category category = lastCategory;
-    private Module open;
+    private Module openModule;
+    private HudWidget openWidget;
     private String query = "";
     private int page;
+
+    /** The one dropdown currently expanded, drawn above everything else. */
+    private Dropdown expanded;
 
     private float winX;
     private float winY;
@@ -81,6 +87,7 @@ public final class ClickGui extends UiScreen {
         winH = Math.min(360f, height - 40f);
         winX = (width - winW) / 2f;
         winY = (height - winH) / 2f;
+        expanded = null;
 
         buildHeader();
         if (TAB_MODS.equals(tab)) buildSidebar();
@@ -113,16 +120,17 @@ public final class ClickGui extends UiScreen {
                     Color edge = active ? theme.accent() : theme.stroke().alpha(0.6f + 0.4f * lift);
                     Draw.roundRect(g, x, y, w, h, 6f, fill);
                     Draw.roundOutline(g, x, y, w, h, 6f, 1f, edge);
-                    Color textColor = active ? theme.accent()
-                            : theme.dim().mix(theme.text(), lift);
+                    Color textColor = active ? theme.accent() : theme.dim().mix(theme.text(), lift);
                     Draw.textInRow(g, name, x + (w - Draw.textWidth(name)) / 2f, y, h, textColor);
                 }
 
                 @Override
                 protected boolean onClick(Ctx ctx, double mx, double my, int button) {
-                    if (button != 0 || name.equals(tab)) return button == 0;
+                    if (button != 0) return false;
+                    if (name.equals(tab)) return true;
                     tab = name;
-                    open = null;
+                    openModule = null;
+                    openWidget = null;
                     query = "";
                     page = 0;
                     rebuild();
@@ -135,7 +143,8 @@ public final class ClickGui extends UiScreen {
 
         TextBox search = new TextBox("Search...", value -> {
             query = value;
-            open = null;
+            openModule = null;
+            openWidget = null;
             page = 0;
             refresh();
         });
@@ -146,7 +155,7 @@ public final class ClickGui extends UiScreen {
 
     private void buildSidebar() {
         List<Category> entries = new ArrayList<>();
-        entries.add(null); // "All"
+        entries.add(null);
         entries.addAll(List.of(Category.values()));
 
         float itemY = winY + HEADER + 10f;
@@ -173,7 +182,8 @@ public final class ClickGui extends UiScreen {
                 protected boolean onClick(Ctx ctx, double mx, double my, int button) {
                     if (button != 0) return false;
                     category = value;
-                    open = null;
+                    openModule = null;
+                    openWidget = null;
                     query = "";
                     page = 0;
                     rebuild();
@@ -196,9 +206,12 @@ public final class ClickGui extends UiScreen {
     private void refresh() {
         content.clear();
         content.resetScroll();
+        expanded = null;
 
-        if (open != null) {
-            buildSettings();
+        if (openModule != null) {
+            moduleSettings(openModule);
+        } else if (openWidget != null) {
+            widgetSettings(openWidget);
         } else if (TAB_THEME.equals(tab)) {
             buildThemes();
         } else if (TAB_WIDGETS.equals(tab)) {
@@ -232,26 +245,33 @@ public final class ClickGui extends UiScreen {
         int from = page * PER_PAGE;
         int to = Math.min(matched.size(), from + PER_PAGE);
 
-        float used = grid(matched.subList(from, to).stream().map(module -> new Card(
-                module.name(), module.description(), module::enabled, module::enabled,
-                () -> {
-                    open = module;
-                    refresh();
-                })).toList(), 0f);
-
-        used = pager(used, pages);
-        content.contentHeight(used);
+        List<Card> cards = new ArrayList<>();
+        for (Module module : matched.subList(from, to)) {
+            cards.add(new Card(module.name(), module.description(), module::enabled, module::enabled,
+                    () -> {
+                        openModule = module;
+                        refresh();
+                    }));
+        }
+        content.contentHeight(pager(grid(cards, 0f), pages));
     }
 
     private void buildWidgets() {
         Button edit = new Button("Edit HUD Layout",
                 () -> this.client.setScreen(new HudEditorScreen(HadesClient.hud()))).accent();
-        edit.bounds(content.x(), content.y(), content.w() - 6f, 24f);
+        edit.bounds(content.x(), content.y(), content.w() - 84f, 24f);
         content.add(edit);
+
+        Button resetAll = new Button("Reset All", () -> {
+            HadesClient.hud().resetAll();
+            HadesClient.config().save();
+        });
+        resetAll.bounds(content.x() + content.w() - 78f, content.y(), 72f, 24f);
+        content.add(resetAll);
 
         List<HudWidget> matched = new ArrayList<>();
         for (HudWidget widget : HadesClient.hud().all()) {
-            if (matches(widget.name(), "")) matched.add(widget);
+            if (matches(widget.name(), widget.description())) matched.add(widget);
         }
         if (matched.isEmpty()) {
             empty("No matches.");
@@ -263,12 +283,15 @@ public final class ClickGui extends UiScreen {
         int from = page * PER_PAGE;
         int to = Math.min(matched.size(), from + PER_PAGE);
 
-        float used = grid(matched.subList(from, to).stream().map(widget -> new Card(
-                widget.name(), widget.enabled() ? "Shown on the HUD" : "Hidden",
-                widget::enabled, widget::enabled, null)).toList(), 32f);
-
-        used = pager(used, pages);
-        content.contentHeight(used);
+        List<Card> cards = new ArrayList<>();
+        for (HudWidget widget : matched.subList(from, to)) {
+            cards.add(new Card(widget.name(), widget.description(), widget::enabled, widget::enabled,
+                    () -> {
+                        openWidget = widget;
+                        refresh();
+                    }));
+        }
+        content.contentHeight(pager(grid(cards, 32f), pages));
     }
 
     private void buildThemes() {
@@ -281,12 +304,10 @@ public final class ClickGui extends UiScreen {
                     Theme active = ctx.theme();
                     boolean selected = active.id().equals(value.id());
                     float lift = hover.get();
-                    Draw.roundRect(g, x, y, w, h, 6f,
-                            active.raised().alpha(0.5f + 0.3f * lift));
+                    Draw.roundRect(g, x, y, w, h, 6f, active.raised().alpha(0.5f + 0.3f * lift));
                     Draw.roundOutline(g, x, y, w, h, 6f, 1f,
                             selected ? active.accent() : active.stroke().alpha(0.6f));
 
-                    // Swatch strip previews the theme without applying it.
                     float sx = x + 12;
                     for (Color swatch : List.of(value.accent(), value.panel(),
                             value.raised(), value.ok(), value.bad())) {
@@ -296,8 +317,7 @@ public final class ClickGui extends UiScreen {
                     Draw.textInRow(g, value.name(), sx + 8, y, h,
                             selected ? active.text() : active.dim());
                     if (selected) {
-                        String mark = "ACTIVE";
-                        Draw.textInRow(g, mark, x + w - Draw.textWidth(mark) - 12, y, h, active.accent());
+                        Draw.textInRow(g, "ACTIVE", x + w - Draw.textWidth("ACTIVE") - 12, y, h, active.accent());
                     }
                 }
 
@@ -316,45 +336,90 @@ public final class ClickGui extends UiScreen {
         content.contentHeight(y - content.y() + 8f);
     }
 
-    private void buildSettings() {
-        Module module = open;
-        float y = content.y();
-        float w = content.w() - 6f;
+    // ------------------------------------------------------ settings panels
 
-        Element header = new Element() {
+    private void moduleSettings(Module module) {
+        float y = header(module.name(), module.description(),
+                module.category().label(), () -> {
+                    openModule = null;
+                    refresh();
+                });
+        y = toggleRow(y, "Enabled", module::enabled, module::enabled);
+        y = settingRows(y, module.settings());
+        content.contentHeight(y - content.y() + 8f);
+    }
+
+    private void widgetSettings(HudWidget widget) {
+        float y = header(widget.name(), "HUD element", "WIDGET", () -> {
+            openWidget = null;
+            refresh();
+        });
+        y = toggleRow(y, "Shown on HUD", widget::enabled, widget::enabled);
+
+        float w = content.w() - 6f;
+        content.add(label(content.x(), y, w, "Scale"));
+        Slider scale = new Slider(0.5, 2.5, 0.05, false,
+                widget::scaleAsDouble, widget::scaleFromDouble);
+        scale.bounds(content.x() + w - 160f, y + 5f, 148f, 20f);
+        content.add(scale);
+        y += ROW_H + 6f;
+
+        y = settingRows(y, widget.settings());
+
+        Button reset = new Button("Reset Position", () -> {
+            widget.resetPosition();
+            HadesClient.config().save();
+        });
+        reset.bounds(content.x(), y, 120f, 22f);
+        content.add(reset);
+        y += 30f;
+
+        content.contentHeight(y - content.y() + 8f);
+    }
+
+    private float header(String title, String subtitle, String badge, Runnable back) {
+        float w = content.w() - 6f;
+        float y = content.y();
+        Element card = new Element() {
             @Override
             protected void paint(Ctx ctx, DrawContext g) {
                 Theme theme = ctx.theme();
                 Draw.roundRect(g, x, y, w, h, 7f, theme.raised().alpha(0.6f));
                 Draw.roundOutline(g, x, y, w, h, 7f, 1f, theme.stroke().alpha(0.7f));
-                Draw.text(g, "<  " + module.name(), x + 12, y + 10, theme.text());
-                Draw.text(g, Draw.fit(module.description(), w - 24), x + 12, y + 26, theme.dim());
-                String badge = module.category().label().toUpperCase(Locale.ROOT);
-                float bw = Draw.textWidth(badge) + 14;
+                Draw.text(g, "<  " + title, x + 12, y + 10, theme.text());
+                Draw.text(g, Draw.fit(subtitle, w - 24), x + 12, y + 26, theme.dim());
+                String tag = badge.toUpperCase(Locale.ROOT);
+                float bw = Draw.textWidth(tag) + 14;
                 Draw.roundRect(g, x + w - bw - 10, y + 10, bw, 16, 4f, theme.accent().alpha(0.2f));
-                Draw.text(g, badge, x + w - bw - 3, y + 14, theme.accent());
+                Draw.text(g, tag, x + w - bw - 3, y + 14, theme.accent());
             }
 
             @Override
             protected boolean onClick(Ctx ctx, double mx, double my, int button) {
-                open = null;
-                refresh();
+                back.run();
                 return true;
             }
         };
-        header.bounds(content.x(), y, w, 48f);
-        content.add(header);
-        y += 56f;
+        card.bounds(content.x(), y, w, 48f);
+        content.add(card);
+        return y + 56f;
+    }
 
-        Element enableRow = settingRow(content.x(), y, w, "Enabled");
-        content.add(enableRow);
-        Toggle master = new Toggle(module::enabled, module::enabled);
-        master.bounds(content.x() + w - 40f, y + 8f, 28f, 14f);
-        content.add(master);
-        y += 36f;
+    private float toggleRow(float y, String text,
+                            java.util.function.BooleanSupplier getter,
+                            java.util.function.Consumer<Boolean> setter) {
+        float w = content.w() - 6f;
+        content.add(label(content.x(), y, w, text));
+        Toggle toggle = new Toggle(getter, setter);
+        toggle.bounds(content.x() + w - 40f, y + 8f, 28f, 14f);
+        content.add(toggle);
+        return y + ROW_H + 6f;
+    }
 
-        for (Setting setting : module.settings()) {
-            content.add(settingRow(content.x(), y, w, setting.name()));
+    private float settingRows(float y, List<Setting> settings) {
+        float w = content.w() - 6f;
+        for (Setting setting : settings) {
+            content.add(label(content.x(), y, w, setting.name()));
             if (setting instanceof Setting.Bool bool) {
                 Toggle toggle = new Toggle(bool::get, bool::set);
                 toggle.bounds(content.x() + w - 40f, y + 8f, 28f, 14f);
@@ -365,33 +430,25 @@ public final class ClickGui extends UiScreen {
                 slider.bounds(content.x() + w - 160f, y + 5f, 148f, 20f);
                 content.add(slider);
             } else if (setting instanceof Setting.Mode mode) {
-                Button cycle = new Button(mode.get(), null) {
-                    @Override
-                    protected boolean onClick(Ctx ctx, double mx, double my, int button) {
-                        mode.next();
-                        refresh();
-                        return true;
-                    }
-                };
-                cycle.bounds(content.x() + w - 130f, y + 4f, 118f, 22f);
-                content.add(cycle);
+                Dropdown dropdown = new Dropdown(mode);
+                dropdown.bounds(content.x() + w - 150f, y + 4f, 138f, 22f);
+                content.add(dropdown);
             }
-            y += 36f;
+            y += ROW_H + 6f;
         }
-
-        content.contentHeight(y - content.y() + 8f);
+        return y;
     }
 
-    private Element settingRow(float rx, float ry, float rw, String label) {
+    private Element label(float rx, float ry, float rw, String text) {
         Element row = new Element() {
             @Override
             protected void paint(Ctx ctx, DrawContext g) {
                 Theme theme = ctx.theme();
-                Draw.roundRect(g, x, y, w, h, 6f, theme.raised().alpha(0.35f + 0.2f * hover.get()));
-                Draw.textInRow(g, label, x + 12, y, h, theme.text());
+                Draw.roundRect(g, x, y, w, h, 6f, theme.raised().alpha(0.35f));
+                Draw.textInRow(g, text, x + 12, y, h, theme.text());
             }
         };
-        row.bounds(rx, ry, rw, 30f);
+        row.bounds(rx, ry, rw, ROW_H);
         row.interactive(false);
         return row;
     }
@@ -403,14 +460,95 @@ public final class ClickGui extends UiScreen {
                 Draw.textCentered(g, message, x + w / 2f, y + 10, ctx.theme().faint());
             }
         };
-        label.bounds(content.x(), content.y() + 10, content.w(), 30f);
+        label.bounds(content.x(), content.y() + 40, content.w(), 30f);
         content.add(label);
-        content.contentHeight(50f);
+        content.contentHeight(80f);
+    }
+
+    // ------------------------------------------------------------ dropdown
+
+    /**
+     * Closed it is a button showing the current choice; open, its list is drawn
+     * by the screen on top of everything so it is never clipped by the scroll
+     * pane or covered by rows added after it.
+     */
+    private final class Dropdown extends Element {
+        private final Setting.Mode mode;
+
+        Dropdown(Setting.Mode mode) {
+            this.mode = mode;
+        }
+
+        float rowHeight() { return 18f; }
+
+        float listHeight() { return mode.options().length * rowHeight() + 4f; }
+
+        boolean open() { return expanded == this; }
+
+        @Override
+        protected void paint(Ctx ctx, DrawContext g) {
+            Theme theme = ctx.theme();
+            float lift = hover.get();
+            Draw.roundRect(g, x, y, w, h, 5f, theme.panel().alpha(0.9f));
+            Draw.roundOutline(g, x, y, w, h, 5f, 1f,
+                    open() ? theme.accent() : theme.stroke().alpha(0.7f + 0.3f * lift));
+            Draw.textInRow(g, Draw.fit(mode.get(), w - 26), x + 9, y, h, theme.text());
+
+            // Caret, pointing down when closed and up when open.
+            float cx = x + w - 12f;
+            float cy = y + h / 2f;
+            for (int i = 0; i < 4; i++) {
+                float row = open() ? cy + 2 - i : cy - 2 + i;
+                Draw.rect(g, cx - (3 - i), row, (3 - i) * 2f, 1f, theme.dim());
+            }
+        }
+
+        /** Drawn by the screen after the tree, so it sits above everything. */
+        void paintList(Ctx ctx, DrawContext g) {
+            Theme theme = ctx.theme();
+            float listY = y + h + 2f;
+            float listH = listHeight();
+            Draw.shadow(g, x, listY, w, listH, 5f, 6, Color.rgb(0, 0, 0).alpha(0.9f));
+            Draw.roundRect(g, x, listY, w, listH, 5f, theme.panel());
+            Draw.roundOutline(g, x, listY, w, listH, 5f, 1f, theme.accent().alpha(0.8f));
+
+            String[] options = mode.options();
+            for (int i = 0; i < options.length; i++) {
+                float rowY = listY + 2f + i * rowHeight();
+                boolean hovered = ctx.mouseX() >= x && ctx.mouseX() < x + w
+                        && ctx.mouseY() >= rowY && ctx.mouseY() < rowY + rowHeight();
+                boolean current = i == mode.index();
+                if (hovered) {
+                    Draw.roundRect(g, x + 2, rowY, w - 4, rowHeight(), 3f, theme.accent().alpha(0.25f));
+                }
+                Draw.textInRow(g, Draw.fit(options[i], w - 16), x + 9, rowY, rowHeight(),
+                        current ? theme.accent() : theme.dim().mix(theme.text(), hovered ? 1f : 0f));
+            }
+        }
+
+        /** Returns true when the click landed on the open list. */
+        boolean clickList(double mx, double my) {
+            float listY = y + h + 2f;
+            if (mx < x || mx >= x + w || my < listY || my >= listY + listHeight()) return false;
+            int index = (int) ((my - listY - 2f) / rowHeight());
+            if (index >= 0 && index < mode.options().length) {
+                mode.set(index);
+                HadesClient.config().save();
+            }
+            expanded = null;
+            return true;
+        }
+
+        @Override
+        protected boolean onClick(Ctx ctx, double mx, double my, int button) {
+            if (button != 0) return false;
+            expanded = open() ? null : this;
+            return true;
+        }
     }
 
     // ---------------------------------------------------------------- cards
 
-    /** Everything a card needs, whether it wraps a module or a HUD widget. */
     private record Card(String title, String subtitle,
                         java.util.function.BooleanSupplier state,
                         java.util.function.Consumer<Boolean> setState,
@@ -535,7 +673,7 @@ public final class ClickGui extends UiScreen {
         return used + 30f;
     }
 
-    // ------------------------------------------------------------ backdrop
+    // --------------------------------------------------------- paint passes
 
     @Override
     protected void backdrop(Ctx ctx, DrawContext g) {
@@ -549,7 +687,6 @@ public final class ClickGui extends UiScreen {
         Draw.shadow(g, winX, winY + 4, winW, winH, 11f, 14, Color.rgb(0, 0, 0).alpha(in));
         Draw.roundRect(g, winX, winY, winW, winH, 11f, theme.panel().alpha(0.96f * in));
         Draw.roundOutline(g, winX, winY, winW, winH, 11f, 1f, theme.stroke().alpha(in));
-
         Draw.rect(g, winX + 1, winY + HEADER, winW - 2, 1, theme.stroke().alpha(0.8f * in));
 
         String brand = "HADES";
@@ -560,5 +697,23 @@ public final class ClickGui extends UiScreen {
             Draw.rect(g, winX + SIDEBAR, winY + HEADER + 1, 1, winH - HEADER - 2,
                     theme.stroke().alpha(0.7f * in));
         }
+    }
+
+    @Override
+    protected void foreground(Ctx ctx, DrawContext g) {
+        if (expanded != null) expanded.paintList(ctx, g);
+    }
+
+    @Override
+    public boolean mouseClicked(Click click, boolean doubled) {
+        // An open dropdown owns the click before anything underneath sees it.
+        if (expanded != null && click.button() == 0) {
+            if (expanded.clickList(mx(), my())) return true;
+            if (!expanded.contains(mx(), my())) {
+                expanded = null;
+                return true;
+            }
+        }
+        return super.mouseClicked(click, doubled);
     }
 }
