@@ -83,7 +83,6 @@ public final class HadesClient implements ClientModInitializer {
                 if (client.currentScreen == null) client.setScreen(new HudEditorScreen(hud));
             }
             cooldowns.update();
-            slotLocks.tick();
             if (client.player != null) modules.tick();
         });
 
