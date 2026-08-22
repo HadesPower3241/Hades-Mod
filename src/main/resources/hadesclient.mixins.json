@@ -4,8 +4,7 @@
   "package": "dev.hadesclient.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "HandledScreenMixin",
-    "CapeTextureMixin"
+    "HandledScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
