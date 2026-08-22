@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "hadesclient",
+  "version": "${version}",
+  "name": "Hades Client",
+  "description": "A client-side HUD and module framework with a themed click GUI.",
+  "authors": ["HadesPower3241"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.hadesclient.HadesClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.17.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}
