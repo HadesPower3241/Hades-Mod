@@ -18,8 +18,8 @@ public class ClientPlayNetworkHandlerMixin {
         if (client.player == null) return;
 
         for (PlayerListS2CPacket.Entry entry : packet.getPlayerAdditionEntries()) {
-            if (entry.profile() != null && entry.profile().getName() != null) {
-                String name = entry.profile().getName();
+            if (entry.profile() != null && entry.profile().name() != null) {
+                String name = entry.profile().name();
                 client.player.sendMessage(Text.literal("§a+ §f" + name), false);
             }
         }
