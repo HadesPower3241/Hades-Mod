@@ -16,8 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Hooks into container screens for slot locking.
  *
  * <p>
- * Press L while hovering a slot to toggle its locked state.
- * Locked slots are rendered with a red overlay and lock indicator.
+ * Press the configured lock key while hovering a slot to toggle its
+ * locked state. Locked slots are rendered with a red overlay and
+ * lock indicator.
  * </p>
  */
 @Mixin(HandledScreen.class)
@@ -25,6 +26,12 @@ public abstract class HandledScreenMixin {
 
     @Shadow
     protected Slot focusedSlot;
+
+    @Shadow
+    protected int x;
+
+    @Shadow
+    protected int y;
 
     /**
      * Press the configured lock key while hovering a slot
@@ -40,42 +47,26 @@ public abstract class HandledScreenMixin {
             CallbackInfoReturnable<Boolean> cir
     ) {
 
-        /*
-         * Check whether this key event is the configured
-         * slot-lock key.
-         *
-         * KeyBinding.matchesKey(KeyInput) is the correct
-         * Fabric/Yarn 1.21.11 API for this.
-         */
         if (HadesClient.slotLockKey() != null
                 && HadesClient.slotLockKey().matchesKey(input)) {
 
-            /*
-             * Only do something if the mouse is currently
-             * hovering an actual inventory slot.
-             */
             if (this.focusedSlot != null) {
 
                 HadesClient.slotLocks().toggle(this.focusedSlot);
 
                 /*
-                 * Consume the L key so it doesn't continue
-                 * through normal Minecraft screen handling.
+                 * Consume the lock key so it doesn't continue
+                 * into normal Minecraft screen handling.
                  */
                 cir.setReturnValue(true);
                 return;
             }
         }
-
-        /*
-         * Any other key continues through normal Minecraft
-         * behavior.
-         */
     }
 
     /**
-     * Draw the red lock tint and lock icon after vanilla
-     * finishes drawing the slot.
+     * Draw the lock tint and icon after vanilla finishes
+     * rendering the slot.
      */
     @Inject(
             method = "drawSlot",
@@ -84,12 +75,22 @@ public abstract class HandledScreenMixin {
     private void hadesclient$afterDrawSlot(
             DrawContext context,
             Slot slot,
-            int x,
-            int y,
+            int mouseX,
+            int mouseY,
             CallbackInfo ci
     ) {
 
-        HadesClient.slotLocks()
-                .renderSlotOverlay(context, slot, x, y);
+        /*
+         * mouseX/mouseY are NOT the slot coordinates.
+         *
+         * Slot.x / Slot.y = position inside the container
+         * this.x / this.y = position of the container on screen
+         */
+        HadesClient.slotLocks().renderSlotOverlay(
+                context,
+                slot,
+                this.x + slot.x,
+                this.y + slot.y
+        );
     }
 }
