@@ -3,13 +3,19 @@
   "id": "hadesclient",
   "version": "${version}",
   "name": "Hades Client",
-  "description": "A client-side HUD and module framework with a themed click GUI.",
+  "description": "Client-side HUD, modules, capes and slot locking.",
   "authors": ["HadesPower3241"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": ["dev.hadesclient.HadesClient"]
   },
+  "mixins": [
+    {
+      "config": "hadesclient.mixins.json",
+      "environment": "client"
+    }
+  ],
   "depends": {
     "fabricloader": ">=0.17.0",
     "fabric-api": "*",

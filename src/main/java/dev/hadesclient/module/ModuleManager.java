@@ -2,17 +2,13 @@ package dev.hadesclient.module;
 
 import com.google.gson.JsonObject;
 import dev.hadesclient.HadesClient;
-import dev.hadesclient.module.impl.ProcNotifierModule;
-import dev.hadesclient.module.impl.ToggleSneakModule;
-import dev.hadesclient.module.impl.ToggleSprintModule;
-import dev.hadesclient.module.impl.ZoomModule;
+import dev.hadesclient.module.impl.*;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Owns every module, ticks the enabled ones, and persists their state. */
 public final class ModuleManager {
 
     private final Map<String, Module> modules = new LinkedHashMap<>();
@@ -24,55 +20,35 @@ public final class ModuleManager {
         register(new ZoomModule());
     }
 
-    public void register(Module module) {
-        modules.put(module.id(), module);
-    }
-
-    public List<Module> all() {
-        return new ArrayList<>(modules.values());
-    }
-
-    public List<Module> byCategory(Category category) {
+    public void register(Module m) { modules.put(m.id(), m); }
+    public List<Module> all() { return new ArrayList<>(modules.values()); }
+    public List<Module> byCategory(Category c) {
         List<Module> out = new ArrayList<>();
-        for (Module module : modules.values()) {
-            if (category == null || module.category() == category) out.add(module);
-        }
+        for (Module m : modules.values()) if (c == null || m.category() == c) out.add(m);
         return out;
     }
-
-    public Module get(String id) {
-        return modules.get(id);
-    }
-
-    /** Typed lookup so callers don't have to cast at every use site. */
+    public Module get(String id) { return modules.get(id); }
     public <T extends Module> T get(String id, Class<T> type) {
-        Module module = modules.get(id);
-        return type.isInstance(module) ? type.cast(module) : null;
+        Module m = modules.get(id);
+        return type.isInstance(m) ? type.cast(m) : null;
     }
-
     public void tick() {
-        for (Module module : modules.values()) {
-            if (!module.enabled()) continue;
-            try {
-                module.tick();
-            } catch (Throwable t) {
-                module.enabled(false);
-                HadesClient.LOG.error("Module {} threw during tick and was disabled", module.id(), t);
+        for (Module m : modules.values()) {
+            if (!m.enabled()) continue;
+            try { m.tick(); } catch (Throwable t) {
+                m.enabled(false);
+                HadesClient.LOG.error("Module {} threw and was disabled", m.id(), t);
             }
         }
     }
-
     public JsonObject save() {
         JsonObject json = new JsonObject();
-        for (Module module : modules.values()) json.add(module.id(), module.save());
+        for (Module m : modules.values()) json.add(m.id(), m.save());
         return json;
     }
-
     public void load(JsonObject json) {
-        for (Module module : modules.values()) {
-            if (json.has(module.id()) && json.get(module.id()).isJsonObject()) {
-                module.load(json.getAsJsonObject(module.id()));
-            }
-        }
+        for (Module m : modules.values())
+            if (json.has(m.id()) && json.get(m.id()).isJsonObject())
+                m.load(json.getAsJsonObject(m.id()));
     }
 }
