@@ -6,9 +6,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 import dev.hadesclient.HadesClient;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -18,157 +19,119 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Prevents accidental drops and misclicks by letting you lock inventory slots.
+ * Manages locked slots in the player's inventory.
  *
- * <p>Hold the lock key (default: L) and click a slot to toggle its lock.
- * Locked slots reject interactions and render a red tint + lock indicator.
- * The lock set is persisted locally.</p>
+ * Locks are stored using PlayerInventory indices rather than
+ * screen-handler slot IDs.
+ *
+ * This means a player's inventory slot remains the same physical
+ * slot even when the inventory is displayed inside another container.
  */
 public final class SlotLockManager {
 
     private static final Gson GSON =
             new GsonBuilder().setPrettyPrinting().create();
 
-    /*
-     * These IDs represent the slot IDs used by the current screen handler.
+    /**
+     * PlayerInventory indices that are locked.
      *
-     * IMPORTANT:
-     * We consistently use Slot.id throughout this class.
+     * PlayerInventory indices:
      *
-     * slot.id      = screen/container slot ID
-     * slot.getIndex() = underlying inventory index
+     * 0-35  = main inventory + hotbar
+     * 36-39 = armor
+     * 40    = offhand
      *
-     * Mixing the two causes locks to be stored under one ID and checked
-     * using another ID.
+     * The exact visual position is handled by Minecraft's Slot.
      */
     private final Set<Integer> locked = new HashSet<>();
-
-    private boolean lockKeyHeld;
 
     // ------------------------------------------------------------- queries
 
     /**
-     * Check whether a screen-handler slot ID is locked.
+     * Returns true if a PlayerInventory index is locked.
      */
-    public boolean isLocked(int slotId) {
-        return locked.contains(slotId);
+    public boolean isLocked(int inventoryIndex) {
+        return locked.contains(inventoryIndex);
     }
 
     /**
-     * Check whether a specific Slot is locked.
+     * Returns true if this Slot represents a locked player inventory slot.
+     *
+     * Slots belonging to other inventories are never considered locked.
      */
     public boolean isLocked(Slot slot) {
-        return slot != null && isLocked(slot.id);
+        if (slot == null) {
+            return false;
+        }
+
+        if (!(slot.inventory instanceof PlayerInventory)) {
+            return false;
+        }
+
+        return isLocked(slot.getIndex());
     }
 
     /**
-     * Return a copy of all currently locked slot IDs.
+     * Returns a copy of all locked PlayerInventory indices.
      */
     public Set<Integer> lockedSlots() {
         return Set.copyOf(locked);
     }
 
+    /**
+     * Returns true if any player inventory slot is currently locked.
+     */
+    public boolean hasAnyLocks() {
+        return !locked.isEmpty();
+    }
+
     // ---------------------------------------------------------- interaction
 
     /**
-     * Toggle a slot's lock state.
-     *
-     * @param slotId the screen-handler slot ID
-     */
-    public void toggle(int slotId) {
-        if (slotId < 0) {
-            return;
-        }
-
-        if (locked.contains(slotId)) {
-            locked.remove(slotId);
-        } else {
-            locked.add(slotId);
-        }
-
-        save();
-    }
-
-    /**
-     * Toggle a specific Slot's lock state.
+     * Toggle a player's inventory slot.
      */
     public void toggle(Slot slot) {
         if (slot == null) {
             return;
         }
 
-        toggle(slot.id);
+        /*
+         * We only allow locks on the actual PlayerInventory.
+         *
+         * This prevents accidentally locking chest slots,
+         * furnace slots, server GUI slots, etc.
+         */
+        if (!(slot.inventory instanceof PlayerInventory)) {
+            return;
+        }
+
+        int inventoryIndex = slot.getIndex();
+
+        if (inventoryIndex < 0) {
+            return;
+        }
+
+        if (locked.contains(inventoryIndex)) {
+            locked.remove(inventoryIndex);
+        } else {
+            locked.add(inventoryIndex);
+        }
+
+        save();
     }
 
     /**
-     * Remove every currently stored lock.
+     * Unlock every slot.
      */
     public void clearAll() {
         locked.clear();
         save();
     }
 
-    // -------------------------------------------------- event entry points
-
-    /**
-     * Called from the screen mixin before a slot interaction is processed.
-     *
-     * @return true if the interaction should be cancelled
-     */
-    public boolean shouldCancelClick(
-            Slot slot,
-            int button,
-            SlotActionType actionType
-    ) {
-        if (slot == null) {
-            return false;
-        }
-
-        /*
-         * Holding the lock key changes a normal click into a lock toggle.
-         * The actual inventory interaction must therefore be cancelled.
-         */
-        if (lockKeyHeld) {
-            toggle(slot);
-            return true;
-        }
-
-        /*
-         * A normal interaction with a locked slot is blocked.
-         */
-        return isLocked(slot);
-    }
-
-    /**
-     * Called by the screen mixin when a number-key hotbar swap is attempted.
-     *
-     * @param hotbarSlot hotbar slot number (0-8)
-     */
-    public boolean isHotbarSlotLocked(int hotbarSlot) {
-        return isLocked(hotbarSlot);
-    }
-
-    // ------------------------------------------------------------- ticking
-
-    /**
-     * Call every client tick to track whether the lock key is currently held.
-     */
-    public void tick() {
-        lockKeyHeld =
-                HadesClient.slotLockKey() != null
-                        && HadesClient.slotLockKey().isPressed();
-    }
-
-    public boolean isLockKeyHeld() {
-        return lockKeyHeld;
-    }
-
     // ------------------------------------------------------------- rendering
 
     /**
      * Draw the visual lock indicator over a locked slot.
-     *
-     * Called from HandledScreenMixin after vanilla draws the slot.
      */
     public void renderSlotOverlay(
             DrawContext context,
@@ -192,7 +155,7 @@ public final class SlotLockManager {
         );
 
         /*
-         * Small lock body.
+         * Lock body.
          */
         context.fill(
                 x + 5,
@@ -240,7 +203,7 @@ public final class SlotLockManager {
     }
 
     /**
-     * Load the saved locked slot IDs.
+     * Load locked PlayerInventory indices.
      */
     public void load() {
         locked.clear();
@@ -269,13 +232,13 @@ public final class SlotLockManager {
     }
 
     /**
-     * Save the currently locked slot IDs.
+     * Save locked PlayerInventory indices.
      */
     public void save() {
         JsonArray array = new JsonArray();
 
-        for (int slotId : locked) {
-            array.add(slotId);
+        for (int index : locked) {
+            array.add(index);
         }
 
         try {
