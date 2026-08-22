@@ -29,7 +29,7 @@ public abstract class HandledScreenMixin {
 
     /** Draw the lock tint and icon on each locked slot after vanilla finishes rendering it. */
     @Inject(method = "drawSlot", at = @At("TAIL"))
-    private void hadesclient$afterDrawSlot(DrawContext context, Slot slot, CallbackInfo ci) {
+    private void hadesclient$afterDrawSlot(DrawContext context, Slot slot, int x, int y, CallbackInfo ci) {
         HadesClient.slotLocks().renderSlotOverlay(context, slot);
     }
 }
