@@ -80,7 +80,7 @@ public final class TargetPingModule extends Module {
 
         public boolean stale() {
             if (System.currentTimeMillis() > expiresAt) return true;
-            return entity != null && (entity.isRemoved() || !entity.isAlive());
+            return entity != null ? entity.getPos() : pos;
         }
     }
 

@@ -71,7 +71,7 @@ public final class TargetsWidget extends HudWidget {
 
     private String line(TargetPingModule module, TargetPingModule.Ping ping) {
         Vec3d target = ping.position();
-        double distance = mc().player.getPos().distanceTo(target);
+        double distance = mc().player.getPos().distanceTo(target.getPos());
         StringBuilder text = new StringBuilder();
         if (!ping.mine()) text.append(ping.owner()).append(": ");
         text.append(Draw.fit(ping.label(), 90f));
