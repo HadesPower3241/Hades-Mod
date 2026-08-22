@@ -15,13 +15,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Handles Hades Client slot locking on the player's normal E inventory.
+ * Handles Hades Client slot locking on the player's normal inventory screen.
  *
- * Slot locking works only on the normal player inventory opened with E.
- * The hotbar, main inventory, armor, offhand, and crafting slots are
- * included.
+ * Slot locking only works on the inventory opened with E.
  *
- * Chests, furnaces, crafting tables, server GUIs, vaults, etc. are ignored.
+ * The hotbar, main inventory, armor slots, offhand slot, and crafting
+ * slots are all part of the player's inventory screen.
+ *
+ * Chests, furnaces, crafting tables, server GUIs, vaults, etc. are
+ * intentionally ignored.
  */
 @Mixin(HandledScreen.class)
 public abstract class HandledScreenMixin {
@@ -30,15 +32,15 @@ public abstract class HandledScreenMixin {
     protected Slot focusedSlot;
 
     /**
-     * Returns true only for the player's normal E inventory.
+     * Check whether this screen is the player's normal inventory.
      */
     private boolean hadesclient$isPlayerInventory() {
         return (Object) this instanceof InventoryScreen;
     }
 
     /**
-     * Press L (or the configured lock key) while hovering a slot
-     * to toggle its locked state.
+     * Press the configured lock key while hovering a slot
+     * to toggle that slot's locked state.
      */
     @Inject(
             method = "keyPressed",
@@ -49,49 +51,73 @@ public abstract class HandledScreenMixin {
             KeyInput input,
             CallbackInfoReturnable<Boolean> cir
     ) {
-        if (!hadesclient$isPlayerInventory()) {
-            return;
-        }
-
-        if (HadesClient.slotLockKey() != null
-                && HadesClient.slotLockKey().matchesKey(input)) {
-
-            if (this.focusedSlot != null) {
-
-                HadesClient.slotLocks()
-                        .toggle(this.focusedSlot);
-
-                cir.setReturnValue(true);
-            }
-        }
-    }
-
-    /**
-     * Prevent normal mouse interactions with locked slots.
-     *
-     * This is the first layer of actual slot protection.
-     */
-    @Inject(
-            method = "onMouseClick",
-            at = @At("HEAD"),
-            cancellable = true
-    )
-    private void hadesclient$onMouseClick(
-            Slot slot,
-            int slotId,
-            int button,
-            SlotActionType actionType,
-            CallbackInfo ci
-    ) {
         /*
-         * Do not interfere with chests, server GUIs, etc.
+         * Slot locking is only active on the normal E inventory.
          */
         if (!hadesclient$isPlayerInventory()) {
             return;
         }
 
         /*
-         * If this slot is locked, cancel the interaction.
+         * Check the configured slot-lock key.
+         */
+        if (HadesClient.slotLockKey() != null
+                && HadesClient.slotLockKey().matchesKey(input)) {
+
+            /*
+             * focusedSlot is the slot currently underneath
+             * the mouse cursor.
+             */
+            if (this.focusedSlot != null) {
+
+                /*
+                 * Toggle this individual slot.
+                 *
+                 * The SlotLockManager uses a Set, so multiple
+                 * slots can be locked at the same time.
+                 */
+                HadesClient.slotLocks()
+                        .toggle(this.focusedSlot);
+
+                /*
+                 * Consume the lock key.
+                 */
+                cir.setReturnValue(true);
+            }
+        }
+    }
+
+    /**
+     * Prevent interactions with locked slots.
+     *
+     * Minecraft 1.21.11 uses:
+     *
+     * onMouseClick(Slot, SlotActionType)
+     *
+     * rather than the older:
+     *
+     * onMouseClick(Slot, int, int, SlotActionType)
+     */
+    @Inject(
+            method = "onMouseClick(Lnet/minecraft/screen/slot/Slot;Lnet/minecraft/screen/slot/SlotActionType;)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void hadesclient$onLockedSlotClick(
+            Slot slot,
+            SlotActionType actionType,
+            CallbackInfo ci
+    ) {
+        /*
+         * Never interfere with chests, server GUIs, furnaces,
+         * vaults, etc.
+         */
+        if (!hadesclient$isPlayerInventory()) {
+            return;
+        }
+
+        /*
+         * If the clicked slot is locked, cancel the interaction.
          */
         if (slot != null
                 && HadesClient.slotLocks().isLocked(slot)) {
@@ -101,7 +127,8 @@ public abstract class HandledScreenMixin {
     }
 
     /**
-     * Draw the red lock tint and lock icon.
+     * Draw the red lock tint and lock icon after Minecraft
+     * finishes drawing each slot.
      */
     @Inject(
             method = "drawSlot",
@@ -114,13 +141,17 @@ public abstract class HandledScreenMixin {
             int mouseY,
             CallbackInfo ci
     ) {
+        /*
+         * Never render lock indicators outside the player's
+         * normal E inventory.
+         */
         if (!hadesclient$isPlayerInventory()) {
             return;
         }
 
         /*
-         * Slot.x and Slot.y are already in the correct coordinate
-         * space for this drawSlot call.
+         * Slot.x / Slot.y are already the correct coordinates
+         * for this drawSlot context.
          */
         HadesClient.slotLocks().renderSlotOverlay(
                 context,
