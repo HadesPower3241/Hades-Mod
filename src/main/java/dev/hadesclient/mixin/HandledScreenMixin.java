@@ -11,19 +11,16 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Handles Hades Client slot locking on the player's normal inventory screen.
  *
- * <p>
  * Slot locking only works on the inventory opened with E.
  *
- * <p>
  * The hotbar, main inventory, armor slots, offhand slot, and crafting
  * slots are all part of the player's inventory screen.
  *
- * <p>
  * Chests, furnaces, crafting tables, server GUIs, vaults, etc. are
  * intentionally ignored.
  */
@@ -43,11 +40,6 @@ public abstract class HandledScreenMixin {
     /**
      * Press the configured lock key while hovering a slot
      * to toggle that slot's locked state.
-     *
-     * Example:
-     *
-     * Hover slot -> press L -> locked
-     * Hover same slot -> press L -> unlocked
      */
     @Inject(
             method = "keyPressed",
@@ -58,12 +50,8 @@ public abstract class HandledScreenMixin {
             KeyInput input,
             CallbackInfoReturnable<Boolean> cir
     ) {
-
         /*
-         * Slot locking is ONLY active on the normal E inventory.
-         *
-         * This prevents L from doing anything to chests,
-         * furnaces, server GUIs, etc.
+         * Slot locking is only active on the normal E inventory.
          */
         if (!hadesclient$isPlayerInventory()) {
             return;
@@ -71,30 +59,27 @@ public abstract class HandledScreenMixin {
 
         /*
          * Check the configured slot-lock key.
-         *
-         * Currently this is L, but if the keybind is changed,
-         * this automatically follows the new key.
          */
         if (HadesClient.slotLockKey() != null
                 && HadesClient.slotLockKey().matchesKey(input)) {
 
             /*
-             * focusedSlot is the inventory slot currently
-             * underneath the mouse cursor.
+             * focusedSlot is the slot currently underneath
+             * the mouse cursor.
              */
             if (this.focusedSlot != null) {
 
                 /*
                  * Toggle this individual slot.
                  *
-                 * The SlotLockManager uses a Set, so multiple
-                 * slots can be locked at the same time.
+                 * SlotLockManager uses a Set, so multiple
+                 * slots can be locked simultaneously.
                  */
                 HadesClient.slotLocks()
                         .toggle(this.focusedSlot);
 
                 /*
-                 * Tell Minecraft that we handled the key.
+                 * Consume the lock key.
                  */
                 cir.setReturnValue(true);
             }
@@ -115,7 +100,6 @@ public abstract class HandledScreenMixin {
             int mouseY,
             CallbackInfo ci
     ) {
-
         /*
          * Never render lock indicators outside the player's
          * normal E inventory.
@@ -125,19 +109,10 @@ public abstract class HandledScreenMixin {
         }
 
         /*
-         * IMPORTANT:
+         * drawSlot's mouseX/mouseY are not the slot coordinates.
          *
-         * drawSlot() is already being rendered in the inventory
-         * GUI's coordinate space.
-         *
-         * Slot.x and Slot.y are the actual coordinates of the
-         * slot inside that GUI.
-         *
-         * We therefore DO NOT add this.x / this.y here.
-         *
-         * Adding this.x + slot.x would apply the GUI offset twice,
-         * which is what caused the lock indicator to appear
-         * displaced from the inventory.
+         * Slot.x / Slot.y are the slot's coordinates in the
+         * inventory GUI coordinate system.
          */
         HadesClient.slotLocks().renderSlotOverlay(
                 context,
