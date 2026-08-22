@@ -9,6 +9,8 @@ import dev.hadesclient.hud.widget.DirectionWidget;
 import dev.hadesclient.hud.widget.FpsWidget;
 import dev.hadesclient.hud.widget.InventoryWidget;
 import dev.hadesclient.hud.widget.PingWidget;
+import dev.hadesclient.hud.widget.ProcWidget;
+import dev.hadesclient.hud.widget.TargetsWidget;
 import dev.hadesclient.theme.Theme;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -28,6 +30,8 @@ public final class HudManager {
 
     public HudManager() {
         register(new InventoryWidget());
+        register(new ProcWidget());
+        register(new TargetsWidget());
         register(new FpsWidget());
         register(new CoordsWidget());
         register(new PingWidget());

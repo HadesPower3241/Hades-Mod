@@ -6,7 +6,17 @@ import java.util.List;
 public final class Themes {
 
     private final List<Theme> all = List.of(
-            Theme.midnight(), Theme.ember(), Theme.tide(), Theme.paper());
+            Theme.midnight(),
+            Theme.amethyst(),
+            Theme.ember(),
+            Theme.tide(),
+            Theme.yule(),
+            Theme.frostbite(),
+            Theme.valentine(),
+            Theme.countdown(),
+            Theme.hollow(),
+            Theme.bloom(),
+            Theme.paper());
 
     private Theme active = all.get(0);
 

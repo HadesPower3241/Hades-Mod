@@ -2,9 +2,11 @@ package dev.hadesclient.module;
 
 import com.google.gson.JsonObject;
 import dev.hadesclient.HadesClient;
-import dev.hadesclient.module.impl.ZoomModule;
+import dev.hadesclient.module.impl.ProcNotifierModule;
+import dev.hadesclient.module.impl.TargetPingModule;
 import dev.hadesclient.module.impl.ToggleSneakModule;
 import dev.hadesclient.module.impl.ToggleSprintModule;
+import dev.hadesclient.module.impl.ZoomModule;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,6 +19,8 @@ public final class ModuleManager {
     private final Map<String, Module> modules = new LinkedHashMap<>();
 
     public ModuleManager() {
+        register(new TargetPingModule());
+        register(new ProcNotifierModule());
         register(new ToggleSprintModule());
         register(new ToggleSneakModule());
         register(new ZoomModule());
@@ -40,6 +44,12 @@ public final class ModuleManager {
 
     public Module get(String id) {
         return modules.get(id);
+    }
+
+    /** Typed lookup so callers don't have to cast at every use site. */
+    public <T extends Module> T get(String id, Class<T> type) {
+        Module module = modules.get(id);
+        return type.isInstance(module) ? type.cast(module) : null;
     }
 
     public void tick() {
