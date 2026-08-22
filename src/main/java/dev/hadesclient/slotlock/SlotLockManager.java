@@ -6,7 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 import dev.hadesclient.HadesClient;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.screen.slot.Slot;
@@ -24,8 +23,7 @@ import java.util.Set;
  * Locks are stored using PlayerInventory indices rather than
  * screen-handler slot IDs.
  *
- * This means a player's inventory slot remains the same physical
- * slot even when the inventory is displayed inside another container.
+ * Multiple slots can be locked at the same time.
  */
 public final class SlotLockManager {
 
@@ -35,31 +33,38 @@ public final class SlotLockManager {
     /**
      * PlayerInventory indices that are locked.
      *
-     * PlayerInventory indices:
-     *
-     * 0-35  = main inventory + hotbar
+     * 0-35 = player inventory + hotbar
      * 36-39 = armor
-     * 40    = offhand
-     *
-     * The exact visual position is handled by Minecraft's Slot.
+     * 40 = offhand
      */
     private final Set<Integer> locked = new HashSet<>();
 
-    // ------------------------------------------------------------- queries
+    /*
+     * Kept for compatibility with HadesClient's client tick.
+     *
+     * We no longer use "hold L" to lock slots.
+     * L is handled by HandledScreenMixin when pressed while
+     * hovering a slot.
+     */
+    private boolean lockKeyHeld;
+
+    // -------------------------------------------------------------
+    // QUERIES
+    // -------------------------------------------------------------
 
     /**
-     * Returns true if a PlayerInventory index is locked.
+     * Returns true if the given PlayerInventory index is locked.
      */
     public boolean isLocked(int inventoryIndex) {
         return locked.contains(inventoryIndex);
     }
 
     /**
-     * Returns true if this Slot represents a locked player inventory slot.
-     *
-     * Slots belonging to other inventories are never considered locked.
+     * Returns true if this Slot belongs to the player's inventory
+     * and that inventory slot is locked.
      */
     public boolean isLocked(Slot slot) {
+
         if (slot == null) {
             return false;
         }
@@ -72,34 +77,34 @@ public final class SlotLockManager {
     }
 
     /**
-     * Returns a copy of all locked PlayerInventory indices.
+     * Returns a copy of all locked inventory indices.
      */
     public Set<Integer> lockedSlots() {
         return Set.copyOf(locked);
     }
 
     /**
-     * Returns true if any player inventory slot is currently locked.
+     * Returns true if at least one slot is locked.
      */
     public boolean hasAnyLocks() {
         return !locked.isEmpty();
     }
 
-    // ---------------------------------------------------------- interaction
+    // -------------------------------------------------------------
+    // LOCKING
+    // -------------------------------------------------------------
 
     /**
      * Toggle a player's inventory slot.
      */
     public void toggle(Slot slot) {
+
         if (slot == null) {
             return;
         }
 
         /*
-         * We only allow locks on the actual PlayerInventory.
-         *
-         * This prevents accidentally locking chest slots,
-         * furnace slots, server GUI slots, etc.
+         * Only actual player inventory slots can be locked.
          */
         if (!(slot.inventory instanceof PlayerInventory)) {
             return;
@@ -121,17 +126,50 @@ public final class SlotLockManager {
     }
 
     /**
-     * Unlock every slot.
+     * Unlock everything.
      */
     public void clearAll() {
         locked.clear();
         save();
     }
 
-    // ------------------------------------------------------------- rendering
+    // -------------------------------------------------------------
+    // TICK / KEY STATE
+    // -------------------------------------------------------------
 
     /**
-     * Draw the visual lock indicator over a locked slot.
+     * Called every client tick by HadesClient.
+     *
+     * This method is retained so HadesClient does not need to change.
+     *
+     * Slot locking itself is now triggered by pressing L while
+     * hovering a slot in HandledScreenMixin.
+     */
+    public void tick() {
+
+        if (HadesClient.slotLockKey() != null) {
+            lockKeyHeld =
+                    HadesClient.slotLockKey().isPressed();
+        } else {
+            lockKeyHeld = false;
+        }
+    }
+
+    /**
+     * Returns whether the lock key is currently held.
+     *
+     * Kept for compatibility with existing code.
+     */
+    public boolean isLockKeyHeld() {
+        return lockKeyHeld;
+    }
+
+    // -------------------------------------------------------------
+    // RENDERING
+    // -------------------------------------------------------------
+
+    /**
+     * Draw the red lock overlay and lock indicator.
      */
     public void renderSlotOverlay(
             DrawContext context,
@@ -139,6 +177,7 @@ public final class SlotLockManager {
             int x,
             int y
     ) {
+
         if (!isLocked(slot)) {
             return;
         }
@@ -193,9 +232,12 @@ public final class SlotLockManager {
         );
     }
 
-    // --------------------------------------------------------- persistence
+    // -------------------------------------------------------------
+    // PERSISTENCE
+    // -------------------------------------------------------------
 
     private static Path file() {
+
         return FabricLoader.getInstance()
                 .getConfigDir()
                 .resolve("hadesclient")
@@ -203,9 +245,10 @@ public final class SlotLockManager {
     }
 
     /**
-     * Load locked PlayerInventory indices.
+     * Load locked inventory indices from disk.
      */
     public void load() {
+
         locked.clear();
 
         Path path = file();
@@ -214,16 +257,19 @@ public final class SlotLockManager {
             return;
         }
 
-        try (Reader reader = Files.newBufferedReader(path)) {
+        try (Reader reader =
+                     Files.newBufferedReader(path)) {
 
             JsonArray array =
-                    JsonParser.parseReader(reader).getAsJsonArray();
+                    JsonParser.parseReader(reader)
+                            .getAsJsonArray();
 
             for (var element : array) {
                 locked.add(element.getAsInt());
             }
 
         } catch (Exception e) {
+
             HadesClient.LOG.error(
                     "Could not read slotlocks.json",
                     e
@@ -232,9 +278,10 @@ public final class SlotLockManager {
     }
 
     /**
-     * Save locked PlayerInventory indices.
+     * Save locked inventory indices to disk.
      */
     public void save() {
+
         JsonArray array = new JsonArray();
 
         for (int index : locked) {
@@ -242,15 +289,21 @@ public final class SlotLockManager {
         }
 
         try {
+
             Path path = file();
 
-            Files.createDirectories(path.getParent());
+            Files.createDirectories(
+                    path.getParent()
+            );
 
-            try (Writer writer = Files.newBufferedWriter(path)) {
+            try (Writer writer =
+                         Files.newBufferedWriter(path)) {
+
                 GSON.toJson(array, writer);
             }
 
         } catch (Exception e) {
+
             HadesClient.LOG.error(
                     "Could not write slotlocks.json",
                     e
