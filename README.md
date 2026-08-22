@@ -54,45 +54,6 @@ Rounded rectangles, outlines, circles and shadows are drawn with scanline fills
 rather than generated mask textures. That keeps the whole renderer on four stable
 Minecraft calls, which is what makes version ports cheap.
 
-## Config
-
-Everything lives in `config/hadesclient.json` — theme choice, module state and
-settings, HUD layout. It saves when you close the menu or quit the game.
-
-## Building
-
-Requires JDK 21.
-
-```bash
-gradle wrapper
-./gradlew build
-```
-
-Output: `build/libs/hades-client-1.21.11-0.1.0.jar`.
-
-## Building without installing anything
-
-`.github/workflows/build.yml` is included. Upload this folder to a GitHub repo, open
-the Actions tab, wait for the green check, then download the `hades-client-jar`
-artifact from the finished run.
-
-## Installing into Lunar Client
-
-Open the launcher, select 1.21.11, enable the Fabric add-on, then ⚙ → Mods and drag
-the jar in. Fabric API ships with Lunar's Fabric add-on; on plain Fabric you need it
-in `.minecraft/mods` alongside this jar.
-
-## Adding a module
-
-Extend `Module`, declare settings with `setting(new Setting.Bool(...))`, and register
-it in `ModuleManager`'s constructor. The card, the settings panel and persistence are
-generated from that.
-
-## Adding a HUD widget
-
-Extend `HudWidget` (or `TextWidget` for a simple readout), call `size()` with your
-measured dimensions during render, and register it in `HudManager`'s constructor.
-Anchoring, scaling, dragging and saving are handled for you.
 
 ## Status
 
