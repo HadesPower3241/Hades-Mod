@@ -3,6 +3,7 @@ package dev.hadesclient.mixin;
 import dev.hadesclient.HadesClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import org.spongepowered.asm.mixin.Mixin;
@@ -39,7 +40,7 @@ public abstract class HandledScreenMixin {
 
     /** Prevent dropping locked items when hovering and pressing the drop key (Q). */
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
-    private void hadesclient$onKeyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+    private void hadesclient$onKeyPressed(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
         if (this.focusedSlot != null && HadesClient.slotLocks().isLocked(this.focusedSlot)) {
             cir.setReturnValue(true);
         }
