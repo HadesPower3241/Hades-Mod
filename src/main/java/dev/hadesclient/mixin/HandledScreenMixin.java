@@ -5,7 +5,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,35 +13,80 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Hooks into the container screen to block clicks on locked slots and draw the
- * lock overlay.
+ * Hooks into container screens for slot locking.
+ *
+ * <p>
+ * Press L while hovering a slot to toggle its locked state.
+ * Locked slots are rendered with a red overlay and their interactions
+ * will be blocked by the appropriate interaction hooks.
+ * </p>
  */
 @Mixin(HandledScreen.class)
 public abstract class HandledScreenMixin {
 
-    @Shadow protected Slot focusedSlot;
+    @Shadow
+    protected Slot focusedSlot;
 
-    /** Cancel any click on a locked slot, or toggle the lock if the lock key is held. */
-    @Inject(method = "onMouseClick(Lnet/minecraft/screen/slot/Slot;IILnet/minecraft/screen/slot/SlotActionType;)V",
-            at = @At("HEAD"), cancellable = true)
-    private void hadesclient$onSlotClick(Slot slot, int slotId, int button,
-                                          SlotActionType actionType, CallbackInfo ci) {
-        if (HadesClient.slotLocks().shouldCancelClick(slot, button, actionType)) {
-            ci.cancel();
+    /**
+     * Press the lock key while hovering a slot to toggle its lock state.
+     */
+    @Inject(
+            method = "keyPressed",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void hadesclient$onKeyPressed(
+            KeyInput input,
+            CallbackInfoReturnable<Boolean> cir
+    ) {
+
+        /*
+         * Only react when the actual configured lock key is pressed.
+         */
+        if (HadesClient.slotLockKey() != null
+                && HadesClient.slotLockKey().matchesKey(input)) {
+
+            /*
+             * We only lock something if the mouse is currently
+             * hovering a real inventory slot.
+             */
+            if (this.focusedSlot != null) {
+
+                HadesClient.slotLocks().toggle(this.focusedSlot);
+
+                /*
+                 * Tell Minecraft that we handled this key.
+                 * This prevents L from continuing through the normal
+                 * screen key handling.
+                 */
+                cir.setReturnValue(true);
+                return;
+            }
         }
+
+        /*
+         * For every other key, preserve normal Minecraft behavior.
+         *
+         * We currently don't block anything here.
+         */
     }
 
-    /** Draw the lock tint and icon on each locked slot after vanilla finishes rendering it. */
-    @Inject(method = "drawSlot", at = @At("TAIL"))
-    private void hadesclient$afterDrawSlot(DrawContext context, Slot slot, int x, int y, CallbackInfo ci) {
-        HadesClient.slotLocks().renderSlotOverlay(context, slot, x, y);
-    }
+    /**
+     * Draw the lock tint and icon after vanilla finishes rendering a slot.
+     */
+    @Inject(
+            method = "drawSlot",
+            at = @At("TAIL")
+    )
+    private void hadesclient$afterDrawSlot(
+            DrawContext context,
+            Slot slot,
+            int x,
+            int y,
+            CallbackInfo ci
+    ) {
 
-    /** Prevent dropping locked items when hovering and pressing the drop key (Q). */
-    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
-    private void hadesclient$onKeyPressed(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
-        if (this.focusedSlot != null && HadesClient.slotLocks().isLocked(this.focusedSlot)) {
-            cir.setReturnValue(true);
-        }
+        HadesClient.slotLocks()
+                .renderSlotOverlay(context, slot, x, y);
     }
 }
