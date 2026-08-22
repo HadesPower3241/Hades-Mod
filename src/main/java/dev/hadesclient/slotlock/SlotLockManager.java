@@ -5,12 +5,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 import dev.hadesclient.HadesClient;
-import dev.hadesclient.render.Draw;
-import dev.hadesclient.theme.Color;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 
@@ -24,47 +20,89 @@ import java.util.Set;
 /**
  * Prevents accidental drops and misclicks by letting you lock inventory slots.
  *
- * <p>Hold the lock key (default: L) and click a slot to toggle its lock. Locked
- * slots reject clicks, shift-clicks, number-key swaps and drops, and render a
- * red tint + a small lock indicator. The lock set is persisted locally.</p>
- *
- * <p>Inspired by NEU's slot locking (LGPL-3.0). Reimplemented from scratch for
- * Fabric 1.21.11 — NEU is Forge 1.8.9, so zero code is shared.</p>
+ * <p>Hold the lock key (default: L) and click a slot to toggle its lock.
+ * Locked slots reject interactions and render a red tint + lock indicator.
+ * The lock set is persisted locally.</p>
  */
 public final class SlotLockManager {
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON =
+            new GsonBuilder().setPrettyPrinting().create();
 
+    /*
+     * These IDs represent the slot IDs used by the current screen handler.
+     *
+     * IMPORTANT:
+     * We consistently use Slot.id throughout this class.
+     *
+     * slot.id      = screen/container slot ID
+     * slot.getIndex() = underlying inventory index
+     *
+     * Mixing the two causes locks to be stored under one ID and checked
+     * using another ID.
+     */
     private final Set<Integer> locked = new HashSet<>();
+
     private boolean lockKeyHeld;
 
     // ------------------------------------------------------------- queries
 
-    public boolean isLocked(int slotIndex) {
-        return locked.contains(slotIndex);
+    /**
+     * Check whether a screen-handler slot ID is locked.
+     */
+    public boolean isLocked(int slotId) {
+        return locked.contains(slotId);
     }
 
+    /**
+     * Check whether a specific Slot is locked.
+     */
     public boolean isLocked(Slot slot) {
         return slot != null && isLocked(slot.id);
     }
 
+    /**
+     * Return a copy of all currently locked slot IDs.
+     */
     public Set<Integer> lockedSlots() {
         return Set.copyOf(locked);
     }
 
     // ---------------------------------------------------------- interaction
 
-    /** Toggle a slot's lock state. Called when the lock key + click fires. */
-    public void toggle(int slotIndex) {
-        if (slotIndex < 0) return;
-        if (locked.contains(slotIndex)) {
-            locked.remove(slotIndex);
-        } else {
-            locked.add(slotIndex);
+    /**
+     * Toggle a slot's lock state.
+     *
+     * @param slotId the screen-handler slot ID
+     */
+    public void toggle(int slotId) {
+        if (slotId < 0) {
+            return;
         }
+
+        if (locked.contains(slotId)) {
+            locked.remove(slotId);
+        } else {
+            locked.add(slotId);
+        }
+
         save();
     }
 
+    /**
+     * Toggle a specific Slot's lock state.
+     */
+    public void toggle(Slot slot) {
+        if (slot == null) {
+            return;
+        }
+
+        toggle(slot.id);
+    }
+
+    /**
+     * Remove every currently stored lock.
+     */
     public void clearAll() {
         locked.clear();
         save();
@@ -72,81 +110,188 @@ public final class SlotLockManager {
 
     // -------------------------------------------------- event entry points
 
-    /** Called from the mixin before a slot click is processed. Return true to cancel. */
-    public boolean shouldCancelClick(Slot slot, int button, SlotActionType actionType) {
-        if (slot == null) return false;
+    /**
+     * Called from the screen mixin before a slot interaction is processed.
+     *
+     * @return true if the interaction should be cancelled
+     */
+    public boolean shouldCancelClick(
+            Slot slot,
+            int button,
+            SlotActionType actionType
+    ) {
+        if (slot == null) {
+            return false;
+        }
 
-        // If the lock key is held, this is a lock-toggle click, not a real click.
+        /*
+         * Holding the lock key changes a normal click into a lock toggle.
+         * The actual inventory interaction must therefore be cancelled.
+         */
         if (lockKeyHeld) {
-            toggle(slot.getIndex());
+            toggle(slot);
             return true;
         }
 
-        if (!isLocked(slot)) return false;
-
-        // Block all interactions on locked slots.
-        return true;
+        /*
+         * A normal interaction with a locked slot is blocked.
+         */
+        return isLocked(slot);
     }
 
-    /** Called from the mixin to check number-key swaps to a locked slot. */
+    /**
+     * Called by the screen mixin when a number-key hotbar swap is attempted.
+     *
+     * @param hotbarSlot hotbar slot number (0-8)
+     */
     public boolean isHotbarSlotLocked(int hotbarSlot) {
         return isLocked(hotbarSlot);
     }
 
-    /** Call every tick to track the lock key state. */
+    // ------------------------------------------------------------- ticking
+
+    /**
+     * Call every client tick to track whether the lock key is currently held.
+     */
     public void tick() {
-        lockKeyHeld = HadesClient.slotLockKey() != null && HadesClient.slotLockKey().isPressed();
+        lockKeyHeld =
+                HadesClient.slotLockKey() != null
+                        && HadesClient.slotLockKey().isPressed();
     }
 
     public boolean isLockKeyHeld() {
         return lockKeyHeld;
     }
 
-    /** Draw the lock overlay on a slot. Called from the mixin's drawSlot tail. */
-    public void renderSlotOverlay(DrawContext context, Slot slot, int x, int y) {
-        if (!isLocked(slot)) return;
-        // Semi-transparent red tint.
-        context.fill(x, y, x + 16, y + 16, 0x60FF4444);
-        // Tiny lock icon: a filled square with a loop on top.
-        context.fill(x + 5, y + 8, x + 11, y + 13, 0xD0FF6666);
-        context.fill(x + 6, y + 5, x + 10, y + 9, 0x00000000);
-        context.fill(x + 6, y + 5, x + 7, y + 9, 0xD0FF6666);
-        context.fill(x + 9, y + 5, x + 10, y + 9, 0xD0FF6666);
-        context.fill(x + 6, y + 5, x + 10, y + 6, 0xD0FF6666);
+    // ------------------------------------------------------------- rendering
+
+    /**
+     * Draw the visual lock indicator over a locked slot.
+     *
+     * Called from HandledScreenMixin after vanilla draws the slot.
+     */
+    public void renderSlotOverlay(
+            DrawContext context,
+            Slot slot,
+            int x,
+            int y
+    ) {
+        if (!isLocked(slot)) {
+            return;
+        }
+
+        /*
+         * Semi-transparent red tint.
+         */
+        context.fill(
+                x,
+                y,
+                x + 16,
+                y + 16,
+                0x60FF4444
+        );
+
+        /*
+         * Small lock body.
+         */
+        context.fill(
+                x + 5,
+                y + 8,
+                x + 11,
+                y + 13,
+                0xD0FF6666
+        );
+
+        /*
+         * Lock shackle.
+         */
+        context.fill(
+                x + 6,
+                y + 5,
+                x + 7,
+                y + 9,
+                0xD0FF6666
+        );
+
+        context.fill(
+                x + 9,
+                y + 5,
+                x + 10,
+                y + 9,
+                0xD0FF6666
+        );
+
+        context.fill(
+                x + 6,
+                y + 5,
+                x + 10,
+                y + 6,
+                0xD0FF6666
+        );
     }
 
     // --------------------------------------------------------- persistence
 
     private static Path file() {
-        return FabricLoader.getInstance().getConfigDir()
-                .resolve("hadesclient").resolve("slotlocks.json");
+        return FabricLoader.getInstance()
+                .getConfigDir()
+                .resolve("hadesclient")
+                .resolve("slotlocks.json");
     }
 
+    /**
+     * Load the saved locked slot IDs.
+     */
     public void load() {
         locked.clear();
+
         Path path = file();
-        if (!Files.exists(path)) return;
+
+        if (!Files.exists(path)) {
+            return;
+        }
+
         try (Reader reader = Files.newBufferedReader(path)) {
-            JsonArray array = JsonParser.parseReader(reader).getAsJsonArray();
+
+            JsonArray array =
+                    JsonParser.parseReader(reader).getAsJsonArray();
+
             for (var element : array) {
                 locked.add(element.getAsInt());
             }
+
         } catch (Exception e) {
-            HadesClient.LOG.error("Could not read slotlocks.json", e);
+            HadesClient.LOG.error(
+                    "Could not read slotlocks.json",
+                    e
+            );
         }
     }
 
+    /**
+     * Save the currently locked slot IDs.
+     */
     public void save() {
         JsonArray array = new JsonArray();
-        for (int index : locked) array.add(index);
+
+        for (int slotId : locked) {
+            array.add(slotId);
+        }
+
         try {
             Path path = file();
+
             Files.createDirectories(path.getParent());
+
             try (Writer writer = Files.newBufferedWriter(path)) {
                 GSON.toJson(array, writer);
             }
+
         } catch (Exception e) {
-            HadesClient.LOG.error("Could not write slotlocks.json", e);
+            HadesClient.LOG.error(
+                    "Could not write slotlocks.json",
+                    e
+            );
         }
     }
 }
