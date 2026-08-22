@@ -17,8 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * <p>
  * Press L while hovering a slot to toggle its locked state.
- * Locked slots are rendered with a red overlay and their interactions
- * will be blocked by the appropriate interaction hooks.
+ * Locked slots are rendered with a red overlay and lock indicator.
  * </p>
  */
 @Mixin(HandledScreen.class)
@@ -28,7 +27,8 @@ public abstract class HandledScreenMixin {
     protected Slot focusedSlot;
 
     /**
-     * Press the lock key while hovering a slot to toggle its lock state.
+     * Press the configured lock key while hovering a slot
+     * to toggle that slot's lock state.
      */
     @Inject(
             method = "keyPressed",
@@ -41,23 +41,26 @@ public abstract class HandledScreenMixin {
     ) {
 
         /*
-         * Only react when the actual configured lock key is pressed.
+         * Check whether this key event is the configured
+         * slot-lock key.
+         *
+         * KeyBinding.matchesKey(KeyInput) is the correct
+         * Fabric/Yarn 1.21.11 API for this.
          */
         if (HadesClient.slotLockKey() != null
                 && HadesClient.slotLockKey().matchesKey(input)) {
 
             /*
-             * We only lock something if the mouse is currently
-             * hovering a real inventory slot.
+             * Only do something if the mouse is currently
+             * hovering an actual inventory slot.
              */
             if (this.focusedSlot != null) {
 
                 HadesClient.slotLocks().toggle(this.focusedSlot);
 
                 /*
-                 * Tell Minecraft that we handled this key.
-                 * This prevents L from continuing through the normal
-                 * screen key handling.
+                 * Consume the L key so it doesn't continue
+                 * through normal Minecraft screen handling.
                  */
                 cir.setReturnValue(true);
                 return;
@@ -65,14 +68,14 @@ public abstract class HandledScreenMixin {
         }
 
         /*
-         * For every other key, preserve normal Minecraft behavior.
-         *
-         * We currently don't block anything here.
+         * Any other key continues through normal Minecraft
+         * behavior.
          */
     }
 
     /**
-     * Draw the lock tint and icon after vanilla finishes rendering a slot.
+     * Draw the red lock tint and lock icon after vanilla
+     * finishes drawing the slot.
      */
     @Inject(
             method = "drawSlot",
