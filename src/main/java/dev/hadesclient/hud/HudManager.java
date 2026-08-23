@@ -30,7 +30,6 @@ public final class HudManager {
         register(new PingWidget());
         register(new ClockWidget());
         register(new DirectionWidget());
-        register(new TextWidget());
         // Cosmic Prisons:
         register(new TrinketCooldownWidget());
         register(new CommandCooldownWidget());
