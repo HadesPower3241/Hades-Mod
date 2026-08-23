@@ -13,50 +13,35 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MinecraftClientMixin {
 
     /**
-     * Prevents Q from dropping a locked item when the inventory
-     * screen is closed.
+     * Prevent Q from dropping the currently selected item
+     * when that hotbar slot is locked.
      *
-     * Minecraft processes the normal drop key inside
-     * MinecraftClient.handleInputEvents().
+     * This specifically handles the case where the inventory
+     * screen is CLOSED.
      */
     @Inject(
             method = "handleInputEvents",
             at = @At("HEAD")
     )
-    private void hadesclient$blockLockedDropKey(CallbackInfo ci) {
+    private void hadesclient$blockLockedDrop(CallbackInfo ci) {
 
         MinecraftClient client =
                 (MinecraftClient) (Object) this;
 
-        /*
-         * No player = nothing to protect.
-         */
         if (client.player == null) {
             return;
         }
 
-        /*
-         * No locks = completely normal Minecraft behaviour.
-         */
         if (!HadesClient.slotLocks().hasAnyLocks()) {
             return;
         }
 
-        /*
-         * Only do this when Q/drop is actually being processed.
-         */
         KeyBinding dropKey = client.options.dropKey;
 
         if (!dropKey.isPressed()) {
             return;
         }
 
-        /*
-         * The selected hotbar slot is the player's currently
-         * selected inventory slot.
-         *
-         * PlayerInventory.selectedSlot is 0-8.
-         */
         PlayerInventory inventory =
                 client.player.getInventory();
 
@@ -65,26 +50,9 @@ public abstract class MinecraftClientMixin {
 
         /*
          * If the currently selected hotbar slot is locked,
-         * prevent Minecraft from processing the drop key.
-         *
-         * IMPORTANT:
-         *
-         * This is intentionally only checking the selected slot.
-         *
-         * That means:
-         *
-         * locked slot selected + Q
-         *     -> blocked
-         *
-         * unlocked slot selected + Q
-         *     -> normal Q
+         * consume the Q press.
          */
         if (HadesClient.slotLocks().isLocked(selectedSlot)) {
-
-            /*
-             * Release the key's pressed state so Minecraft's
-             * later drop processing does not see it.
-             */
             dropKey.setPressed(false);
         }
     }
