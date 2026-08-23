@@ -18,7 +18,7 @@ public final class FontManager {
         MINECRAFT("minecraft", "Minecraft Default", null),
         CLEAN("clean", "Poppins",               Identifier.of("hadesclient", "clean")),
         CLEAN_MEDIUM("clean_medium", "Poppins Medium", Identifier.of("hadesclient", "clean_medium")),
-        CLEAN_BOLD("clean_bold", "Poppins Bold", Identifier.of("minecraft", "default")),
+        CLEAN_BOLD("clean_bold", "Poppins Bold", Identifier.of("hadesclient", "clean_bold")),
         CLEAN_LIGHT("clean_light", "Poppins Light",   Identifier.of("hadesclient", "clean_light"));
 
         private final String id;
