@@ -7,61 +7,28 @@ import net.minecraft.entity.player.PlayerInventory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(KeyBinding.class)
+@Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
 
-    /**
-     * Intercepts KeyBinding.wasPressed().
-     *
-     * Minecraft uses wasPressed() to consume individual key presses.
-     *
-     * If this is the drop key and the currently selected hotbar
-     * slot is locked, we prevent the queued Q press from being
-     * consumed as a normal drop action.
-     */
     @Inject(
-            method = "wasPressed",
-            at = @At("HEAD"),
-            cancellable = true
+            method = "handleInputEvents",
+            at = @At("HEAD")
     )
-    private void hadesclient$blockLockedDrop(
-            CallbackInfoReturnable<Boolean> cir
-    ) {
+    private void hadesclient$blockLockedDrop(CallbackInfo ci) {
 
         MinecraftClient client =
-                MinecraftClient.getInstance();
+                (MinecraftClient) (Object) this;
 
-        /*
-         * No player.
-         */
         if (client.player == null) {
             return;
         }
 
-        /*
-         * No locks.
-         */
         if (!HadesClient.slotLocks().hasAnyLocks()) {
             return;
         }
 
-        /*
-         * This mixin applies to EVERY KeyBinding.
-         *
-         * We only care about the actual Minecraft drop key.
-         */
-        KeyBinding thisKey =
-                (KeyBinding) (Object) this;
-
-        if (thisKey != client.options.dropKey) {
-            return;
-        }
-
-        /*
-         * Find the currently selected hotbar slot.
-         */
         PlayerInventory inventory =
                 client.player.getInventory();
 
@@ -69,11 +36,34 @@ public abstract class MinecraftClientMixin {
                 inventory.getSelectedSlot();
 
         /*
-         * If the selected hotbar slot is locked,
-         * consume the Q action by returning false.
+         * Only interfere with Q when the currently selected
+         * hotbar slot is locked.
          */
-        if (HadesClient.slotLocks().isLocked(selectedSlot)) {
-            cir.setReturnValue(false);
+        if (!HadesClient.slotLocks().isLocked(selectedSlot)) {
+            return;
+        }
+
+        KeyBinding dropKey = client.options.dropKey;
+
+        /*
+         * Clear the held state.
+         */
+        dropKey.setPressed(false);
+
+        /*
+         * IMPORTANT:
+         *
+         * Minecraft stores individual key presses internally.
+         * Calling setPressed(false) does NOT clear those queued
+         * presses.
+         *
+         * wasPressed() consumes that queue.
+         *
+         * Drain every queued Q press so they cannot execute later
+         * after the player changes slots.
+         */
+        while (dropKey.wasPressed()) {
+            // Intentionally do nothing.
         }
     }
 }
