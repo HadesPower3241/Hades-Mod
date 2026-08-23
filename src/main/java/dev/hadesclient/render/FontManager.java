@@ -60,6 +60,6 @@ public final class FontManager {
      */
     public Style style() {
         if (current.fontId == null) return Style.EMPTY;
-        return Style.EMPTY.withFont(current.fontId);
+        return Style.EMPTY.withFont(new StyleSpriteSource.Font(current.fontId));
     }
 }
