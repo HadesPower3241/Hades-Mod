@@ -2,6 +2,7 @@ package dev.hadesclient.render;
 
 import net.minecraft.text.Style;
 import net.minecraft.util.Identifier;
+import net.minecraft.text.StyleSpriteSource;
 
 /**
  * Manages font selection for the Hades HUD. The font is applied via
