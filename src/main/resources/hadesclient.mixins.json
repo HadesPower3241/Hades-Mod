@@ -6,7 +6,7 @@
   "client": [
     "HandledScreenMixin",
     "ClientPlayNetworkHandlerMixin",
-    "MinecraftClientMixin"
+    "KeyBindingMixin"
   ],
   "injectors": {
     "defaultRequire": 1
