@@ -60,7 +60,10 @@ public final class FontManager {
      * returns a Style with the font identifier set.
      */
     public Style style() {
-        if (current.fontId == null) return Style.EMPTY;
-        return Style.EMPTY.withFont(new StyleSpriteSource.Font(current.fontId));
-    }
+    System.out.println("[HADES FONT] style() called: " + current.id()
+            + " | fontId=" + current.fontId());
+
+    if (current.fontId == null) return Style.EMPTY;
+    return Style.EMPTY.withFont(new StyleSpriteSource.Font(current.fontId));
+}
 }
