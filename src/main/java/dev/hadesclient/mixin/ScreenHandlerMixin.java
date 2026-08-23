@@ -12,32 +12,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Protects locked player-inventory slots at the ScreenHandler level.
- *
- * A locked slot cannot be:
- *
- * - left-clicked
- * - right-clicked
- * - shift-clicked
- * - thrown with Q
- * - thrown with Ctrl+Q
- * - swapped with a number key
- * - collected with double-click
- * - affected by drag/quick-craft
- *
- * The important part is that locks are stored using PlayerInventory
- * indices, while ScreenHandler uses its own slot IDs.
- */
 @Mixin(ScreenHandler.class)
 public abstract class ScreenHandlerMixin {
 
     @Shadow
     public abstract Slot getSlot(int index);
 
-    /**
-     * Intercept Minecraft inventory operations before vanilla handles them.
-     */
     @Inject(
             method = "onSlotClick",
             at = @At("HEAD"),
@@ -54,14 +34,14 @@ public abstract class ScreenHandlerMixin {
         MinecraftClient client = MinecraftClient.getInstance();
 
         /*
-         * Only protect the actual local player.
+         * Only protect the local player's inventory.
          */
         if (client.player == null || player != client.player) {
             return;
         }
 
         /*
-         * If nothing is locked, completely leave vanilla alone.
+         * Nothing to protect.
          */
         if (!HadesClient.slotLocks().hasAnyLocks()) {
             return;
@@ -69,17 +49,19 @@ public abstract class ScreenHandlerMixin {
 
         /*
          * =========================================================
-         * OUTSIDE-CLICK OPERATIONS
+         * OUTSIDE THE SCREEN
          * =========================================================
          *
-         * -999 means there is no actual slot under the cursor.
+         * -999 means the click/action happened outside a slot.
          *
-         * Q can use this path when the cursor is holding an item.
+         * Q can reach this path when the player is holding an item
+         * on the cursor and presses Q.
          *
-         * We cannot identify the source slot from slotIndex because
-         * there isn't one.
+         * We cannot determine which inventory slot originally supplied
+         * the cursor stack here.
          *
-         * Therefore, while locks exist, prevent THROW outside a slot.
+         * Therefore, if the player is holding an item and attempts
+         * THROW outside the inventory, block the throw.
          */
         if (slotIndex == -999) {
 
@@ -92,14 +74,14 @@ public abstract class ScreenHandlerMixin {
         }
 
         /*
-         * Invalid slot IDs other than -999.
+         * Other invalid slot IDs.
          */
         if (slotIndex < 0) {
             return;
         }
 
         /*
-         * Get the actual ScreenHandler slot.
+         * Get the slot Minecraft is operating on.
          */
         Slot clickedSlot;
 
@@ -115,17 +97,16 @@ public abstract class ScreenHandlerMixin {
 
         /*
          * =========================================================
-         * DIRECT SLOT INTERACTION
+         * LOCKED CLICKED SLOT
          * =========================================================
          *
-         * This catches operations where the clicked slot itself
-         * is the thing being modified.
+         * This catches:
          *
-         * LEFT CLICK
-         * RIGHT CLICK
-         * SHIFT CLICK
+         * Left click
+         * Right click
+         * Shift click
          * Q
-         * CTRL+Q
+         * Ctrl+Q
          * etc.
          */
         if (HadesClient.slotLocks().isLocked(clickedSlot)) {
@@ -138,48 +119,55 @@ public abstract class ScreenHandlerMixin {
          * NUMBER KEY / HOTBAR SWAP
          * =========================================================
          *
-         * Pressing 1-9 while hovering a slot creates:
+         * Number keys generate SlotActionType.SWAP.
          *
-         *     SlotActionType.SWAP
+         * The operation involves:
          *
-         * The operation involves TWO slots:
+         *     1. The slot being hovered
+         *     2. The hotbar slot being swapped with it
          *
-         *     clickedSlot
-         *          +
-         *     player's hotbar slot
-         *
-         * Therefore both must be checked.
+         * We therefore need to protect BOTH.
          */
         if (actionType == SlotActionType.SWAP) {
 
             /*
-             * Minecraft's SWAP button should be 0-8.
+             * Minecraft normally uses buttons 0-8 for
+             * hotbar slots 1-9.
              */
             if (button >= 0 && button <= 8) {
 
                 /*
-                 * Find the player's actual hotbar inventory slot.
+                 * Search the current ScreenHandler for the actual
+                 * PlayerInventory slot corresponding to this hotbar
+                 * position.
                  */
-                Slot hotbarSlot =
-                        findPlayerHotbarSlot(button);
+                Slot hotbarSlot = findPlayerHotbarSlot(button);
 
                 /*
-                 * If the hotbar slot is locked, the swap would
-                 * modify a protected slot.
+                 * If the hotbar destination is locked,
+                 * cancel the entire swap.
                  */
                 if (hotbarSlot != null
-                        && HadesClient.slotLocks()
-                        .isLocked(hotbarSlot)) {
+                        && HadesClient.slotLocks().isLocked(hotbarSlot)) {
 
+                    ci.cancel();
+                    return;
+                }
+
+                /*
+                 * Extra safety:
+                 *
+                 * Check the PlayerInventory index directly as well.
+                 *
+                 * This protects us even if the current screen handler
+                 * does not expose the hotbar slot in the way we expect.
+                 */
+                if (HadesClient.slotLocks().isLocked(button)) {
                     ci.cancel();
                     return;
                 }
             }
 
-            /*
-             * If the clicked slot was locked, it was already
-             * cancelled above.
-             */
             return;
         }
 
@@ -188,10 +176,10 @@ public abstract class ScreenHandlerMixin {
          * QUICK MOVE / SHIFT CLICK
          * =========================================================
          *
-         * If the SOURCE slot is locked, the direct-slot check
-         * above already cancelled it.
+         * If the source slot is locked, the check above already
+         * cancelled the operation.
          *
-         * We leave unlocked shift-clicks alone.
+         * Unlocked shift-clicks remain usable.
          */
         if (actionType == SlotActionType.QUICK_MOVE) {
             return;
@@ -202,9 +190,10 @@ public abstract class ScreenHandlerMixin {
          * THROW
          * =========================================================
          *
-         * Q / Ctrl+Q from a normal slot.
+         * Q / Ctrl+Q.
          *
-         * Locked source slots were already cancelled above.
+         * If the source slot is locked, it was already cancelled
+         * above.
          */
         if (actionType == SlotActionType.THROW) {
             return;
@@ -212,13 +201,15 @@ public abstract class ScreenHandlerMixin {
 
         /*
          * =========================================================
-         * DOUBLE CLICK / PICKUP_ALL
+         * DOUBLE CLICK
          * =========================================================
          *
-         * PICKUP_ALL scans multiple slots internally.
+         * PICKUP_ALL can search multiple inventory slots.
          *
-         * Because Minecraft may find a locked stack somewhere else,
-         * conservatively cancel it whenever locks exist.
+         * It could therefore find a locked item that wasn't the
+         * slot initially clicked.
+         *
+         * Cancel it whenever locks exist.
          */
         if (actionType == SlotActionType.PICKUP_ALL) {
             ci.cancel();
@@ -227,13 +218,13 @@ public abstract class ScreenHandlerMixin {
 
         /*
          * =========================================================
-         * QUICK CRAFT / DRAG
+         * DRAG / QUICK CRAFT
          * =========================================================
          *
-         * A drag is processed across multiple onSlotClick calls.
+         * Drag operations are processed across multiple calls.
          *
-         * We cannot safely know all future targets from one call,
-         * so cancel the operation whenever locks exist.
+         * Cancel them while locks exist so a locked slot cannot
+         * be included in the drag.
          */
         if (actionType == SlotActionType.QUICK_CRAFT) {
             ci.cancel();
@@ -241,22 +232,18 @@ public abstract class ScreenHandlerMixin {
     }
 
     /**
-     * Finds a player's hotbar slot by PlayerInventory index.
+     * Find the player's hotbar slot using the PlayerInventory index.
      *
-     * PlayerInventory hotbar indices are:
+     * PlayerInventory:
      *
-     *     0 = first hotbar slot
-     *     1 = second
-     *     ...
-     *     8 = ninth
-     *
-     * We deliberately search the current ScreenHandler rather than
-     * assuming its slot IDs.
+     * 0 = hotbar slot 1
+     * 1 = hotbar slot 2
+     * ...
+     * 8 = hotbar slot 9
      */
     private Slot findPlayerHotbarSlot(int hotbarIndex) {
 
-        MinecraftClient client =
-                MinecraftClient.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
         if (client.player == null) {
             return null;
@@ -267,10 +254,6 @@ public abstract class ScreenHandlerMixin {
 
         for (Slot slot : handler.slots) {
 
-            /*
-             * Make absolutely sure this is the local player's
-             * inventory, not a chest/container inventory.
-             */
             if (slot.inventory == client.player.getInventory()
                     && slot.getIndex() == hotbarIndex) {
 
