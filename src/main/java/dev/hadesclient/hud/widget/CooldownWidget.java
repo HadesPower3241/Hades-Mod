@@ -30,7 +30,7 @@ public final class CooldownWidget extends HudWidget {
         defaults(Anchor.BOTTOM_RIGHT, 8f, 40f, true);
     }
 
-    @Override @Override public String description() { return "Displays active item/ability cooldowns."; }
+    @Override public String description() { return "Displays active item/ability cooldowns."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; 
     }
 
