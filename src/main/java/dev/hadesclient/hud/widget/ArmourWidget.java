@@ -23,7 +23,7 @@ public final class ArmourWidget extends HudWidget {
         defaults(Anchor.BOTTOM_RIGHT, 8f, 8f, false);
     }
 
-    @Override @Override public String description() { return "Displays your equipped armour durability."; }
+    @Override public String description() { return "Displays your equipped armour durability."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; 
     }
 
