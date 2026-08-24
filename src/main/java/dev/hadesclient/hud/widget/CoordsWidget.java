@@ -9,7 +9,7 @@ public final class CoordsWidget extends TextWidget {
         defaults(Anchor.TOP_LEFT, 8f, 30f, true);
     }
 
-    @Override @Override public String description() { return "Displays your X, Y, Z coordinates."; }
+    @Override public String description() { return "Displays your X, Y, Z coordinates."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; }
 
     @Override
