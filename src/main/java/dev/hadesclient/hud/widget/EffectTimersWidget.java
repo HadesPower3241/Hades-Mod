@@ -41,7 +41,7 @@ public final class EffectTimersWidget extends HudWidget {
         defaults(Anchor.TOP_LEFT, 8f, 120f, false);
     }
 
-    @Override @Override public String description() { return "Displays active status effect durations."; }
+    @Override public String description() { return "Displays active status effect durations."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; 
     }
 
