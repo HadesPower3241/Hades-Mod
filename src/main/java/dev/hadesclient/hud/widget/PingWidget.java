@@ -14,7 +14,7 @@ public final class PingWidget extends TextWidget {
         defaults(Anchor.BOTTOM_LEFT, 8f, 8f, true);
     }
 
-    @Override @Override public String description() { return "Displays your connection latency."; }
+    @Override public String description() { return "Displays your connection latency."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; }
 
     private int latency() {
