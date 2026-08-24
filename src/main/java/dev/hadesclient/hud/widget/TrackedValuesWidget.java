@@ -31,7 +31,7 @@ public final class TrackedValuesWidget extends HudWidget {
         defaults(Anchor.TOP_RIGHT, 8f, 30f, false);
     }
 
-    @Override @Override public String description() { return "Displays tracked server values."; }
+    @Override public String description() { return "Displays tracked server values."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; 
     }
 
