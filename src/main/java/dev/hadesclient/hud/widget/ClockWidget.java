@@ -15,7 +15,7 @@ public final class ClockWidget extends TextWidget {
         defaults(Anchor.TOP_RIGHT, 8f, 8f, false);
     }
 
-    @Override @Override public String description() { return "Displays the current real-world time."; }
+    @Override public String description() { return "Displays the current real-world time."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; }
 
     @Override
