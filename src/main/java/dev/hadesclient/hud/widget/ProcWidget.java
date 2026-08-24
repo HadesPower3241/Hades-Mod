@@ -25,7 +25,7 @@ public final class ProcWidget extends HudWidget {
         defaults(Anchor.TOP_LEFT, 0f, 90f, true);
     }
 
-    @Override @Override public String description() { return "Floating text for enchant/ability procs."; }
+    @Override public String description() { return "Floating text for enchant/ability procs."; }
     @Override public HudCategory category() { return HudCategory.GENERAL; 
     }
 
