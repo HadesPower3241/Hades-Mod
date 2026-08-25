@@ -10,9 +10,8 @@ import net.minecraft.client.gui.DrawContext;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/** Lunar-style slider: dark track, blue filled portion, blue circle thumb. */
+/** Lunar-style slider: dark track, theme-colored fill + circle, smooth rendering. */
 public class Slider extends Element {
-
     private final double min, max, step;
     private final Supplier<Double> getter;
     private final Consumer<Double> setter;
@@ -39,39 +38,42 @@ public class Slider extends Element {
         setter.accept(Math.max(min, Math.min(max, snapped)));
     }
 
-    @Override
-    protected void paint(Ctx ctx, DrawContext g) {
+    @Override protected void paint(Ctx ctx, DrawContext g) {
         Theme theme = ctx.theme();
         float trackH = 3f;
         float trackY = y + (h - trackH) / 2f;
         float f = fraction();
 
+        // Use theme accent color instead of hardcoded blue
+        Color accent = theme.accent();
+
         // Dark track background
-        Draw.roundRect(g, x, trackY, w, trackH, 1.5f, Color.rgb(50, 50, 58).alpha(0.9f));
-        // Blue filled portion
-        if (f > 0.001f)
-            Draw.roundRect(g, x, trackY, w * f, trackH, 1.5f, Color.rgb(66, 133, 244));
+        Draw.roundRect(g, x, trackY, w, trackH, trackH / 2f, Color.rgb(45, 45, 52));
+        // Filled portion in theme accent
+        if (f > 0.002f)
+            Draw.roundRect(g, x, trackY, w * f, trackH, trackH / 2f, accent);
 
-        // Blue circle thumb
+        // High-res circle thumb using multiple concentric circles for smoothness
         float knobX = x + w * f;
-        float knobR = 5f + hover.get() * 1.5f;
-        Draw.circle(g, knobX, y + h / 2f, knobR, Color.rgb(66, 133, 244));
+        float knobCY = y + h / 2f;
+        float baseR = 5.5f + hover.get() * 1.5f;
+        // Outer glow
+        Draw.circle(g, knobX, knobCY, baseR + 1.5f, accent.alpha(0.15f));
+        // Main circle
+        Draw.circle(g, knobX, knobCY, baseR, accent);
+        // Inner highlight for 3D effect
+        Draw.circle(g, knobX, knobCY - 0.5f, baseR * 0.4f, Color.rgb(255, 255, 255).alpha(0.25f));
 
-        // Value readout left of slider
+        // Value readout
         String label = whole ? String.valueOf(Math.round(getter.get()))
                 : String.format("%.2f", getter.get());
         Draw.text(g, label, x - Draw.textWidth(label) - 8, y + (h - Draw.textHeight()) / 2f, theme.dim());
     }
 
-    @Override
-    protected boolean onPress(Ctx ctx, double mx, double my, int button) {
-        if (button != 0) return false;
-        setFromMouse(mx); return true;
+    @Override protected boolean onPress(Ctx ctx, double mx, double my, int button) {
+        if (button != 0) return false; setFromMouse(mx); return true;
     }
-
-    @Override
-    protected boolean onDrag(Ctx ctx, double mx, double my, int button) {
-        if (button != 0) return false;
-        setFromMouse(mx); return true;
+    @Override protected boolean onDrag(Ctx ctx, double mx, double my, int button) {
+        if (button != 0) return false; setFromMouse(mx); return true;
     }
 }

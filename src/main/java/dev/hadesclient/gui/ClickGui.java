@@ -627,17 +627,23 @@ public final class ClickGui extends UiScreen {
                     Draw.roundOutline(g, x, y, w, h, 0f, 1f,
                             theme.stroke().mix(theme.accent(), active * 0.6f).alpha(0.6f + 0.4f * lift));
                     Draw.text(g, Draw.fit(card.title(), w - 34), x + 12, y + 11, theme.text());
-                    Draw.text(g, Draw.fit(card.subtitle(), w - 24), x + 12, y + 25, theme.dim());
+                    // Description shown only in settings page
 
                     if (card.openSettings() != null) {
                         Color gear = theme.dim().mix(theme.text(), lift);
-                        float gx = x + w - 15f;
-                        float gy = y + 15f;
-                        Draw.circle(g, gx, gy, 2.4f, gear);
-                        Draw.rect(g, gx - 0.5f, gy - 5f, 1.5f, 2f, gear);
-                        Draw.rect(g, gx - 0.5f, gy + 3f, 1.5f, 2f, gear);
-                        Draw.rect(g, gx - 5f, gy - 0.5f, 2f, 1.5f, gear);
-                        Draw.rect(g, gx + 3f, gy - 0.5f, 2f, 1.5f, gear);
+                        float gx = x + w - 16f;
+                        float gy = y + 10f;
+                        // Gear icon: outer ring + inner dot + spokes
+                        Draw.circle(g, gx, gy, 5f, gear.alpha(0.4f));
+                        Draw.circle(g, gx, gy, 3.5f, Color.rgb(25,25,30).alpha(0.7f));
+                        Draw.circle(g, gx, gy, 2f, gear.alpha(0.6f));
+                        // 4 spokes
+                        for (int a = 0; a < 4; a++) {
+                            float angle = (float)(a * Math.PI / 4.0 + Math.PI / 8.0);
+                            float sx = gx + (float)Math.cos(angle) * 4.2f;
+                            float sy = gy + (float)Math.sin(angle) * 4.2f;
+                            Draw.rect(g, sx - 1f, sy - 1f, 2f, 2f, gear.alpha(0.5f));
+                        }
                     }
 
                     boolean enabled = card.state().getAsBoolean();

@@ -28,8 +28,8 @@ public abstract class HudWidget {
     private final Setting.Bool showBg;
     private final Setting.Number bgOpacity;
     private final Setting.Bool showBorder;
-    private final Setting.Number borderOpacity;
-    private final Setting.Number borderWidth;
+    private float borderOpacityVal = 0.55f;
+    private float borderWidthVal = 1.0f;
     private final Setting.Number textOpacity;
     private final Setting.Bool textShadow;
 
@@ -38,8 +38,8 @@ public abstract class HudWidget {
         showBg=setting(new Setting.Bool("showBg","Show Background",true));
         bgOpacity=setting(new Setting.Number("bgOpacity","Bg Opacity",0.78,0,1,0.05,false));
         showBorder=setting(new Setting.Bool("showBorder","Show Border",false));
-        borderOpacity=setting(new Setting.Number("borderOpacity","Border Opacity",0.55,0,1,0.05,false));
-        borderWidth=setting(new Setting.Number("borderWidth","Border Width",1.0,0.5,3.0,0.5,false));
+        borderOpacityVal = 0.55f;
+        borderWidthVal = 1.0f;
         textOpacity=setting(new Setting.Number("textOpacity","Text Opacity",1.0,0,1,0.05,false));
         textShadow=setting(new Setting.Bool("textShadow","Text Shadow",false));
     }
@@ -47,8 +47,8 @@ public abstract class HudWidget {
     public boolean showBg(){return showBg.get();}
     public float bgAlpha(){return(float)bgOpacity.get();}
     public boolean showBorder(){return showBorder.get();}
-    public float borderAlpha(){return(float)borderOpacity.get();}
-    public float borderW(){return(float)borderWidth.get();}
+    public float borderAlpha(){return borderOpacityVal;}
+    public float borderW(){return borderWidthVal;}
     public float txtAlpha(){return(float)textOpacity.get();}
     public boolean txtShadow(){return textShadow.get();}
 

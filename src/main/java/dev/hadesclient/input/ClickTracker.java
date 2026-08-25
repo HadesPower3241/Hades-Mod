@@ -41,6 +41,7 @@ public final class ClickTracker {
         rightDown = nowRight;
     }
 
+    public int cps() { return leftCps() + rightCps(); }
     public int leftCps() { return countIn(leftClicks); }
     public int rightCps() { return countIn(rightClicks); }
 
