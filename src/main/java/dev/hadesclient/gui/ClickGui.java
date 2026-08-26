@@ -551,7 +551,6 @@ public final class ClickGui extends UiScreen {
             y += 36f;
         }
 
-
         content.contentHeight(y - content.y() + 8f);
     }
 
@@ -629,7 +628,6 @@ public final class ClickGui extends UiScreen {
         return row;
     }
 
-
     private float addSection(float cx, float y, float w, String label) {
         content.add(sectionHeader(cx, y, w, label));
         return y + 24f;
@@ -644,6 +642,18 @@ public final class ClickGui extends UiScreen {
             }
         };
         row.bounds(rx, ry, rw, 30f);
+        row.interactive(false);
+        return row;
+    }
+
+    private Element labelElement(float rx, float ry, float rw, String label) {
+        Element row = new Element() {
+            @Override protected void paint(Ctx ctx, DrawContext g) {
+                Theme theme = ctx.theme();
+                Draw.textInRow(g, label, x, y, h, theme.text());
+            }
+        };
+        row.bounds(rx, ry, rw, 22f);
         row.interactive(false);
         return row;
     }
