@@ -1,41 +1,34 @@
 package dev.hadesclient.render;
 
-import dev.hadesclient.render.GuardHighlighter;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
 
-/**
- * Draws lines from the player to nearby guard/enforcer/warden/sentry entities.
- */
+import java.util.Locale;
+
 public final class GuardLineRenderer {
 
-    private static boolean registered = false;
-
-    private GuardLineRenderer() {}
+    private GuardLineRenderer() {
+    }
 
     /**
-     * Registers the world-render callback once.
+     * Register the guard line renderer.
+     *
+     * Call this once from HadesClient.onInitializeClient().
      */
     public static void register() {
-        if (registered) {
-            return;
-        }
-
-        registered = true;
-
         WorldRenderEvents.AFTER_ENTITIES.register(
                 GuardLineRenderer::render
         );
     }
 
     private static void render(WorldRenderContext context) {
+
         if (!GuardHighlighter.isEnabled()) {
             return;
         }
@@ -46,89 +39,98 @@ public final class GuardLineRenderer {
 
         MinecraftClient client = MinecraftClient.getInstance();
 
-        if (client == null || client.player == null || client.world == null) {
+        if (client == null
+                || client.player == null
+                || client.world == null) {
             return;
         }
 
-        VertexConsumerProvider consumers = context.consumers();
+        /*
+         * In Minecraft 1.21.11 the camera is accessed through
+         * the GameRenderer rather than context.camera().
+         */
+        Vec3d cameraPos = context.gameRenderer()
+                .getCamera()
+                .getPos();
 
-        if (consumers == null) {
-            return;
-        }
+        /*
+         * WorldRenderContext coordinates are expected to be
+         * relative to the camera.
+         */
+        var matrices = context.matrices();
 
-        Vec3d cameraPos = context.camera().getPos();
-        Vec3d playerPos = client.player.getPos();
+        matrices.pushPose();
 
-        double range = GuardHighlighter.getRange();
-        double rangeSquared = range * range;
-
-        Matrix4f matrix = context.matrices().peek().getPositionMatrix();
-
-        VertexConsumer vertexConsumer =
-                consumers.getBuffer(RenderLayer.getLines());
-
-        for (Entity entity : client.world.getEntities()) {
-
-            if (entity == client.player) {
-                continue;
-            }
-
-            if (!GuardHighlighter.isGuardEntity(entity)) {
-                continue;
-            }
-
-            if (entity.distanceToSquared(client.player) > rangeSquared) {
-                continue;
-            }
-
-            Vec3d guardPos = entity.getPos();
-
-            /*
-             * Convert world coordinates into coordinates relative
-             * to the camera, which is what WorldRenderContext expects.
-             */
-            float startX = (float) (playerPos.x - cameraPos.x);
-            float startY = (float) (playerPos.y + client.player.getStandingEyeHeight() - cameraPos.y);
-            float startZ = (float) (playerPos.z - cameraPos.z);
-
-            float endX = (float) (guardPos.x - cameraPos.x);
-            float endY = (float) (guardPos.y + entity.getHeight() * 0.5 - cameraPos.y);
-            float endZ = (float) (guardPos.z - cameraPos.z);
-
-            drawLine(
-                    matrix,
-                    vertexConsumer,
-                    startX,
-                    startY,
-                    startZ,
-                    endX,
-                    endY,
-                    endZ
+        try {
+            matrices.translate(
+                    -cameraPos.x,
+                    -cameraPos.y,
+                    -cameraPos.z
             );
+
+            VertexConsumer vertices =
+                    context.consumers().getBuffer(RenderLayers.lines());
+
+            Vec3d playerPos = client.player.getLerpedPos(1.0f);
+
+            double range = GuardHighlighter.getRange();
+            double rangeSquared = range * range;
+
+            double startX = playerPos.x;
+            double startY = playerPos.y + 0.5;
+            double startZ = playerPos.z;
+
+            for (Entity entity : client.world.getEntities()) {
+
+                if (entity == client.player) {
+                    continue;
+                }
+
+                if (!GuardHighlighter.isGuardEntity(entity)) {
+                    continue;
+                }
+
+                if (entity.squaredDistanceTo(client.player) > rangeSquared) {
+                    continue;
+                }
+
+                Vec3d guardPos = entity.getLerpedPos(1.0f);
+
+                double endX = guardPos.x;
+                double endY = guardPos.y + entity.getHeight() * 0.5;
+                double endZ = guardPos.z;
+
+                vertices
+                        .vertex(
+                                (float) startX,
+                                (float) startY,
+                                (float) startZ
+                        )
+                        .color(
+                                GuardHighlighter.getLineRed(),
+                                GuardHighlighter.getLineGreen(),
+                                GuardHighlighter.getLineBlue(),
+                                GuardHighlighter.getLineAlpha()
+                        )
+                        .normal(0.0f, 1.0f, 0.0f);
+
+                vertices
+                        .vertex(
+                                (float) endX,
+                                (float) endY,
+                                (float) endZ
+                        )
+                        .color(
+                                GuardHighlighter.getLineRed(),
+                                GuardHighlighter.getLineGreen(),
+                                GuardHighlighter.getLineBlue(),
+                                GuardHighlighter.getLineAlpha()
+                        )
+                        .normal(0.0f, 1.0f, 0.0f);
+            }
+
+        } finally {
+            matrices.popPose();
         }
-    }
-
-    private static void drawLine(
-            Matrix4f matrix,
-            VertexConsumer consumer,
-            float x1,
-            float y1,
-            float z1,
-            float x2,
-            float y2,
-            float z2
-    ) {
-        float red = 1.0f;
-        float green = 0.15f;
-        float blue = 0.15f;
-        float alpha = 1.0f;
-
-        consumer.vertex(matrix, x1, y1, z1)
-                .color(red, green, blue, alpha)
-                .normal(0.0f, 1.0f, 0.0f);
-
-        consumer.vertex(matrix, x2, y2, z2)
-                .color(red, green, blue, alpha)
-                .normal(0.0f, 1.0f, 0.0f);
     }
 }
