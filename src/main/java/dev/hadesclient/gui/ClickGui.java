@@ -648,13 +648,17 @@ public final class ClickGui extends UiScreen {
         row.interactive(false);
         return row;
     }
-    private Element labelElement(float x, float y, float width, String text) {
-        return new Element(x, y, width, 18f) {
-            @Override
-            public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            Draw.text(context, text, x() + 4f, y() + 4f, Theme.TEXT);
-            }    
-        };
+    private Element labelElement(float rx, float ry, float rw, String text) {
+    Element label = new Element() {
+        @Override
+        protected void paint(Ctx ctx, DrawContext g) {
+            Draw.text(g, text, x + 4f, y + 4f, ctx.theme().text());
+        }
+    };
+
+    label.bounds(rx, ry, rw, 18f);
+    label.interactive(false);
+    return label;
     }
     private void empty(String message) {
         Element label = new Element() {
