@@ -3,7 +3,7 @@ package dev.hadesclient.render;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Vec3d;
@@ -38,7 +38,7 @@ public final class GuardLineRenderer {
         Matrix4f matrix = matrices.peek().getPositionMatrix();
 
         VertexConsumer consumer = context.consumers()
-                .getBuffer(RenderLayer.getLines());
+                .getBuffer(RenderLayers.LINES);
 
         Vec3d cameraPos = context.worldState().cameraRenderState.pos;
 
