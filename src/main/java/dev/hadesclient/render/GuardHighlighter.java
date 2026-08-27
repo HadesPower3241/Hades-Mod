@@ -30,10 +30,10 @@ public final class GuardHighlighter {
         return name.contains("guard") || name.contains("warden") 
             || name.contains("sentry") || name.contains("enforcer");
         /** Efficient bounding-box search for guard entities within range. */
-    public static Box getSearchBox(double range) {
+    }
+     public static Box getSearchBox(double range) {
         var mc = MinecraftClient.getInstance();
         if (mc.player == null) return Box.EMPTY;
         return mc.player.getBoundingBox().expand(range);
-}
     }
 }
