@@ -64,9 +64,9 @@ public final class GuardLineRenderer {
 
             Vec3d guardPos = entity.getLerpedPos(tickDelta);
 
-            float startX = (float) (playerPos.x - cameraPos.x);
-            float startY = (float) (playerPos.y + 0.5 - cameraPos.y);
-            float startZ = (float) (playerPos.z - cameraPos.z);
+            float startX = 0.0f;
+            float startY = 0.0f;    
+            float startZ = 0.0f;
 
             float endX = (float) (guardPos.x - cameraPos.x);
             float endY = (float) (
