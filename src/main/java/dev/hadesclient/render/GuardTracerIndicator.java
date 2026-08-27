@@ -149,4 +149,12 @@ public final class GuardTracerIndicator {
             String label = dist >= 1000
                     ? String.format("%.1fk", dist / 1000)
                     : String.format("%.0fm", dist);
-            Color textC = Color.rgb(200,
+            Color textC = Color.rgb(200,225, 255).alpha(aFrac);
+            Draw.textCentered(g, label, sx + 5f, sy - 4f, textC);
+        }
+    }
+
+    private static Vec3d jomlToVec(Vector3f v) {
+        return new Vec3d(v.x, v.y, v.z);
+    }
+}
