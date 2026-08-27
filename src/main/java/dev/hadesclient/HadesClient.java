@@ -1,5 +1,6 @@
 package dev.hadesclient;
 
+import dev.hadesclient.render.GuardHighlighter;
 import dev.hadesclient.cape.CapeLibrary;
 import dev.hadesclient.cape.render.CapeFeatureRenderer;
 import dev.hadesclient.command.HadesCommand;
@@ -104,6 +105,7 @@ public final class HadesClient implements ClientModInitializer {
         deaths.init();
 
         CapeFeatureRenderer.register();
+        GuardHighlighter.registerRenderer();
         HadesCommand.register();
 
         KeyBinding.Category category = KeyBinding.Category.create(Identifier.of(MOD_ID, "main"));
