@@ -3,9 +3,7 @@
     {
       "type": "ttf",
       "file": "hadesclient:font/poppins_light.ttf",
-      "shift": [0, 0],
-      "size": 10.0,
-      "oversample": 4.0
+      "size": 11.0,
     }
   ]
 }
