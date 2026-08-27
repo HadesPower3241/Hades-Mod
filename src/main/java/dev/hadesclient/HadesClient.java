@@ -108,7 +108,6 @@ public final class HadesClient implements ClientModInitializer {
         CapeFeatureRenderer.register();
         HadesCommand.register();
         GuardLineRenderer.register();
-        GuardTracerIndicator.register();
 
         KeyBinding.Category category = KeyBinding.Category.create(Identifier.of(MOD_ID, "main"));
         menuKey = reg("key.hadesclient.menu", GLFW.GLFW_KEY_RIGHT_SHIFT, category);
