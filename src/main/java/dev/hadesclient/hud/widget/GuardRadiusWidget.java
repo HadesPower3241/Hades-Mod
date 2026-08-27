@@ -47,9 +47,9 @@ public final class GuardRadiusWidget extends HudWidget {
 
     @Override
     public void render(DrawContext g, Theme theme, float x, float y) {
-        GuardHighlighter.setEnabled(enabled() && highlightGuards.get());
-        GuardHighlighter.setLineEnabled(enabled() && guardLines.get());
-        GuardHighlighter.setRange(highlightRange.get());
+    GuardHighlighter.setEnabled(enabled() && highlightGuards.get());
+    GuardHighlighter.setLineEnabled(enabled() && highlightGuards.get() && guardLines.get());
+    GuardHighlighter.setRange(highlightRange.get());
         // Editor preview
         if (isEditor()) {
             float h = showBar.get() ? 34f : 22f;
