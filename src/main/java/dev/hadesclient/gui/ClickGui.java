@@ -636,6 +636,17 @@ public final class ClickGui extends UiScreen {
         return y + 20f;
     }
 
+    private Element labelElement(float x, float y, float w, String text) {
+        Element el = new Element() {
+            @Override protected void paint(Ctx ctx, DrawContext g) {
+                Draw.textInRow(g, text, x, y, 22f, ctx.theme().text());
+            }
+        };
+        el.bounds(x, y, w, 22f);
+        el.interactive(false);
+        return el;
+    }
+
     private Element settingRow(float rx, float ry, float rw, String label) {
         Element row = new Element() {
             @Override protected void paint(Ctx ctx, DrawContext g) {
@@ -773,4 +784,3 @@ public final class ClickGui extends UiScreen {
                     theme.stroke().alpha(0.7f * in));
         }
     }
-}
