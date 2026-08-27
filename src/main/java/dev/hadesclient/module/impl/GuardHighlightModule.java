@@ -7,16 +7,16 @@ import dev.hadesclient.render.GuardHighlighter;
 
 public final class GuardHighlightModule extends Module {
 
-    private final Setting.Boolean highlight = setting(
-            new Setting.Boolean(
+    private final Setting.Bool highlight = setting(
+            new Setting.Bool(
                     "highlight",
                     "Guard Highlight",
                     true
             )
     );
 
-    private final Setting.Boolean lines = setting(
-            new Setting.Boolean(
+    private final Setting.Bool lines = setting(
+            new Setting.Bool(
                     "lines",
                     "Guard Lines",
                     true
@@ -46,13 +46,14 @@ public final class GuardHighlightModule extends Module {
 
     @Override
     public void tick() {
-        GuardHighlighter.setEnabled(highlight.getValue());
-        GuardHighlighter.setLineEnabled(lines.getValue());
-        GuardHighlighter.setRange(range.asDouble());
+        GuardHighlighter.setEnabled(highlight.get());
+        GuardHighlighter.setLineEnabled(lines.get());
+        GuardHighlighter.setRange(range.get());
     }
 
     @Override
     protected void onDisable() {
         GuardHighlighter.setEnabled(false);
+        GuardHighlighter.setLineEnabled(false);
     }
 }
