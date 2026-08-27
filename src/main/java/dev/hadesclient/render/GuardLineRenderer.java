@@ -1,5 +1,6 @@
 package dev.hadesclient.render;
 
+import dev.hadesclient.HadesClient;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
@@ -19,6 +20,8 @@ public final class GuardLineRenderer {
     }
 
     private static void render(WorldRenderContext context) {
+        HadesClient.LOG.info("[GUARD] render called, enabled={}, lineEnabled={}",
+                GuardHighlighter.isEnabled(), GuardHighlighter.isLineEnabled());
         if (!GuardHighlighter.isEnabled() || !GuardHighlighter.isLineEnabled()) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null) return;
@@ -27,29 +30,34 @@ public final class GuardLineRenderer {
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         VertexConsumer consumer = context.consumers().getBuffer(RenderLayers.LINES);
         Vec3d cameraPos = context.worldState().cameraRenderState.pos;
-
         float tickDelta = client.getRenderTickCounter().getTickProgress(true);
         Vec3d playerPos = client.player.getLerpedPos(tickDelta);
         double range = GuardHighlighter.getRange();
         double rangeSq = range * range;
 
-        for (Entity entity : client.world.getEntities()) {
-            if (!GuardHighlighter.isGuardEntity(entity)) continue;
-            if (client.player.squaredDistanceTo(entity) > rangeSq) continue;
+        int count = 0;
+        try {
+            for (Entity entity : client.world.getEntities()) {
+                if (!GuardHighlighter.isGuardEntity(entity)) continue;
+                if (client.player.squaredDistanceTo(entity) > rangeSq) continue;
 
-            Vec3d guardPos = entity.getLerpedPos(tickDelta);
+                Vec3d guardPos = entity.getLerpedPos(tickDelta);
+                float endX = (float)(guardPos.x - cameraPos.x);
+                float endY = (float)(guardPos.y + entity.getHeight() * 0.5 - cameraPos.y);
+                float endZ = (float)(guardPos.z - cameraPos.z);
 
-            float endX = (float)(guardPos.x - cameraPos.x);
-            float endY = (float)(guardPos.y + entity.getHeight() * 0.5 - cameraPos.y);
-            float endZ = (float)(guardPos.z - cameraPos.z);
+                int r = GuardHighlighter.getLineRed();
+                int g = GuardHighlighter.getLineGreen();
+                int b = GuardHighlighter.getLineBlue();
+                int a = GuardHighlighter.getLineAlpha();
 
-            int r = GuardHighlighter.getLineRed();
-            int g = GuardHighlighter.getLineGreen();
-            int b = GuardHighlighter.getLineBlue();
-            int a = GuardHighlighter.getLineAlpha();
-
-            GuardLineRenderLayer.addVertex(consumer, 0f, 0f, 0f, r, g, b, a, 2.0f);
-            GuardLineRenderLayer.addVertex(consumer, endX, endY, endZ, r, g, b, a, 2.0f);
+                GuardLineRenderLayer.addVertex(consumer, 0f, 0f, 0f, r, g, b, a, 2.0f);
+                GuardLineRenderLayer.addVertex(consumer, endX, endY, endZ, r, g, b, a, 2.0f);
+                count++;
+            }
+            HadesClient.LOG.info("[GUARD] drew {} lines", count);
+        } catch (Throwable t) {
+            HadesClient.LOG.error("[GUARD] render failed", t);
         }
     }
 }
