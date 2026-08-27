@@ -100,9 +100,10 @@ public final class GuardTracerIndicator {
             } else {
                 targetX = Math.max(MARGIN, Math.min(w - MARGIN, targetX));
                 targetY = Math.max(MARGIN, Math.min(h - MARGIN, targetY));
-
+                
+                final float initX = targetX, initY = targetY;
                 float[] pos = smooth.computeIfAbsent(guard.getId(),
-                        k -> new float[]{targetX, targetY});
+        k -> new float[]{initX, initY});
                 pos[0] += (targetX - pos[0]) * 0.22f;
                 pos[1] += (targetY - pos[1]) * 0.22f;
                 float sx = pos[0], sy = pos[1];
