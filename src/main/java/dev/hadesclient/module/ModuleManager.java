@@ -18,6 +18,7 @@ public final class ModuleManager {
         register(new ToggleSprintModule());
         register(new ToggleSneakModule());
         register(new ZoomModule());
+        register(new GuardHighlightModule());
     }
 
     public void register(Module m) { modules.put(m.id(), m); }
