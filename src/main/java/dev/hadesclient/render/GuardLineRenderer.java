@@ -1,10 +1,12 @@
 package dev.hadesclient.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.VertexConsumer;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -35,54 +37,51 @@ public final class GuardLineRenderer {
             return;
         }
 
-        /*
-         * In the current mappings, WorldRenderContext exposes the
-         * camera position through cameraState().
-         */
-        Vec3d cameraPos = context.cameraState().pos();
+        PoseStack matrices = context.matrices();
+        Matrix4f matrix = matrices.last().pose();
 
-        Matrix4f matrix = context.matrices()
-                .peek()
-                .getPositionMatrix();
+        MultiBufferSource consumers = context.consumers();
 
-        VertexConsumer consumer = context.consumers()
-                .getBuffer(RenderLayer.getDebugLineStrip(2.0));
+        VertexConsumer consumer = consumers.getBuffer(RenderType.lines());
 
-        float tickDelta = client.getRenderTickCounter().getTickProgress(true);
-
-        Vec3d playerPos = client.player.getLerpedPos(tickDelta);
-
-        double startX = playerPos.x - cameraPos.x;
-        double startY = playerPos.y + 0.5 - cameraPos.y;
-        double startZ = playerPos.z - cameraPos.z;
+        Vec3d playerPos = client.player.getPositionVec();
 
         for (Entity entity : client.world.getEntities()) {
 
-            if (!GuardHighlighter.isGuardInRange(entity)) {
+            // GuardHighlighter is the single source of truth
+            // for what counts as a guard.
+            if (!GuardHighlighter.isGuardEntity(entity)) {
                 continue;
             }
 
-            Vec3d guardPos = entity.getLerpedPos(tickDelta);
+            // Respect the GuardHighlighter range setting.
+            if (client.player.squaredDistanceTo(entity)
+                    > GuardHighlighter.getRange() * GuardHighlighter.getRange()) {
+                continue;
+            }
 
-            double endX = guardPos.x - cameraPos.x;
-            double endY = guardPos.y
-                    + entity.getHeight() * 0.5
-                    - cameraPos.y;
-            double endZ = guardPos.z - cameraPos.z;
+            Vec3d guardPos = entity.getPositionVec();
 
-            consumer
-                    .vertex(matrix,
-                            (float) startX,
-                            (float) startY,
-                            (float) startZ)
-                    .color(255, 60, 60, 255);
+            float startX = (float) (playerPos.x - client.gameRenderer.getMainCamera().getPosition().x);
+            float startY = (float) (playerPos.y + 0.5
+                    - client.gameRenderer.getMainCamera().getPosition().y);
+            float startZ = (float) (playerPos.z - client.gameRenderer.getMainCamera().getPosition().z);
 
-            consumer
-                    .vertex(matrix,
-                            (float) endX,
-                            (float) endY,
-                            (float) endZ)
-                    .color(255, 60, 60, 255);
+            float endX = (float) (guardPos.x - client.gameRenderer.getMainCamera().getPosition().x);
+            float endY = (float) (guardPos.y + entity.getHeight() * 0.5
+                    - client.gameRenderer.getMainCamera().getPosition().y);
+            float endZ = (float) (guardPos.z - client.gameRenderer.getMainCamera().getPosition().z);
+
+            int red = GuardHighlighter.getLineRed();
+            int green = GuardHighlighter.getLineGreen();
+            int blue = GuardHighlighter.getLineBlue();
+            int alpha = GuardHighlighter.getLineAlpha();
+
+            consumer.addVertex(matrix, startX, startY, startZ)
+                    .setColor(red, green, blue, alpha);
+
+            consumer.addVertex(matrix, endX, endY, endZ)
+                    .setColor(red, green, blue, alpha);
         }
     }
 }
