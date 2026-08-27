@@ -51,8 +51,8 @@ public final class GuardLineRenderer {
                 int b = GuardHighlighter.getLineBlue();
                 int a = GuardHighlighter.getLineAlpha();
 
-                GuardLineRenderLayer.addVertex(consumer, 0f, 0f, 0f, r, g, b, a, 2.0f);
-                GuardLineRenderLayer.addVertex(consumer, endX, endY, endZ, r, g, b, a, 2.0f);
+                GuardLineRenderLayer.addVertex(consumer, 0f, 0f, 0f, r, g, b, a, 6.0f);
+                GuardLineRenderLayer.addVertex(consumer, endX, endY, endZ, r, g, b, a, 6.0f);
                 count++;
             }
             HadesClient.LOG.info("[GUARD] drew {} lines", count);
