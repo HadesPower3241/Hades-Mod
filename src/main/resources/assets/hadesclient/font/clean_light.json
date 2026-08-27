@@ -4,6 +4,7 @@
       "type": "ttf",
       "file": "hadesclient:font/poppins_light.ttf",
       "size": 11.0,
+      "advance": true
     }
   ]
 }
