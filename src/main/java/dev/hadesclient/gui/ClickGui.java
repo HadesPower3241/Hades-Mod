@@ -648,7 +648,16 @@ public final class ClickGui extends UiScreen {
         row.interactive(false);
         return row;
     }
-
+    private Element labelElement(float rx, float ry, float rw, String label) {
+    Element element = new Element() {
+        @Override protected void paint(Ctx ctx, DrawContext g) {
+            Draw.textInRow(g, Draw.fit(label, w), x, y, h, ctx.theme().text());
+        }
+    };
+    element.bounds(rx, ry, rw, 22f);
+    element.interactive(false);
+    return element;
+    }
     private void empty(String message) {
         Element label = new Element() {
             @Override protected void paint(Ctx ctx, DrawContext g) {
