@@ -30,6 +30,8 @@ public final class GuardRadiusWidget extends HudWidget {
             "bar", "Show Proximity Bar", true));
     private final Setting.Bool highlightGuards = setting(new Setting.Bool(
             "highlight", "Highlight Guards", true));
+    private final Setting.Bool guardLines = setting(new Setting.Bool(
+        "lines", "Guard Lines", true));
     private final Setting.Number highlightRange = setting(new Setting.Number(
             "highlightRange", "Highlight Range", 100, 16, 200, 4, true));
     private final Setting.ColorVal textColor = setting(new Setting.ColorVal("textColor", "Text Color", 0xFFFFFF));
@@ -46,6 +48,7 @@ public final class GuardRadiusWidget extends HudWidget {
     @Override
     public void render(DrawContext g, Theme theme, float x, float y) {
         GuardHighlighter.setEnabled(enabled() && highlightGuards.get());
+        GuardHighlighter.setLineEnabled(enabled() && guardLines.get());
         GuardHighlighter.setRange(highlightRange.get());
         // Editor preview
         if (isEditor()) {
