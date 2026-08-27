@@ -223,7 +223,7 @@ public final class ClickGui extends UiScreen {
         } else if (TAB_THEME.equals(tab)) {
             buildThemes();
         } else {
-            buildModules();
+            buildWidgets();
         }
     }
 
