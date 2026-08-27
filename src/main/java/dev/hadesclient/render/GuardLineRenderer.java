@@ -81,19 +81,29 @@ public final class GuardLineRenderer {
             int blue = GuardHighlighter.getLineBlue();
             int alpha = GuardHighlighter.getLineAlpha();
 
-            consumer.vertex(
-                    matrix,
+            GuardLineRenderLayer.addVertex(
+                    consumer,
                     startX,
                     startY,
-                    startZ
-            ).color(red, green, blue, alpha);
-
-            consumer.vertex(
-                    matrix,
+                    startZ,
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                    2.0f
+            );
+            
+            GuardLineRenderLayer.addVertex(
+                    consumer,
                     endX,
                     endY,
-                    endZ
-            ).color(red, green, blue, alpha);
+                    endZ,
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                    2.0f
+            );
         }
     }
 }
