@@ -8,7 +8,8 @@
     "ClientPlayNetworkHandlerMixin",
     "MinecraftClientMixin",
     "InGameHudMixin",
-    "EntityGlowMixin"
+    "EntityGlowMixin",
+    "GuardLineRenderMixin"
   ],
   "injectors": {
     "defaultRequire": 1
