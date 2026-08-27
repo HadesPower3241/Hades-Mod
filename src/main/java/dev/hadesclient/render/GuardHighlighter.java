@@ -4,13 +4,9 @@ import dev.hadesclient.HadesClient;
 import dev.hadesclient.hud.widget.GuardRadiusWidget;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Box;
+
 import java.util.Locale;
 
-/**
- * Highlights guard/enforcer/warden entities by applying the MC glowing effect
- * outline. Called each tick to refresh which entities should glow.
- */
 public final class GuardHighlighter {
 
     private static boolean enabled = false;
@@ -24,16 +20,9 @@ public final class GuardHighlighter {
     public static void setRange(double r) { range = r; }
     public static double getRange() { return range; }
 
-    /** Check if an entity name matches guard patterns. */
     public static boolean isGuardEntity(Entity entity) {
         String name = entity.getName().getString().toLowerCase(Locale.ROOT);
-        return name.contains("guard") || name.contains("warden") 
+        return name.contains("guard") || name.contains("warden")
             || name.contains("sentry") || name.contains("enforcer");
-        /** Efficient bounding-box search for guard entities within range. */
-    }
-     public static Box getSearchBox(double range) {
-        var mc = MinecraftClient.getInstance();
-        if (mc.player == null) return Box.EMPTY;
-        return mc.player.getBoundingBox().expand(range);
     }
 }
