@@ -23,7 +23,7 @@ public final class GuardTracerIndicator {
     private static final float PILL_W     = 72f;
     private static final float PILL_H     = 22f;
     private static final float PILL_RAD   = 11f;
-    private static final float DOT_GAP    = 12f;
+    private static final float DOT_GAP    = 3f;
     private static final float GUARD_DOT  = 3.5f;
 
     private static final Map<Integer, float[]> smooth = new HashMap<>();
@@ -134,7 +134,7 @@ public final class GuardTracerIndicator {
         int steps = Math.max(1, (int) (dist / DOT_GAP));
         for (int i = 1; i < steps; i++) {
             float t = i / (float) steps;
-            Draw.rect(g, x1 + dx * t, y1 + dy * t, 1.5f, 1.5f, color);
+            Draw.rect(g, x1 + dx * t - 1f, y1 + dy * t - 1f, 2.5f, 2.5f, color);
         }
     }
 
