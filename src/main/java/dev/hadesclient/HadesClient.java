@@ -7,6 +7,7 @@ import dev.hadesclient.config.Config;
 import dev.hadesclient.cooldown.CooldownManager;
 import dev.hadesclient.render.Draw;
 import dev.hadesclient.render.GuardLineRenderer;
+import dev.hadesclient.render.GuardTracerIndicator;
 import dev.hadesclient.render.FontManager;
 import dev.hadesclient.cosmetic.CapeSelectScreen;
 import dev.hadesclient.gui.ClickGui;
@@ -107,6 +108,7 @@ public final class HadesClient implements ClientModInitializer {
         CapeFeatureRenderer.register();
         HadesCommand.register();
         GuardLineRenderer.register();
+        GuardTracerIndicator.register();
 
         KeyBinding.Category category = KeyBinding.Category.create(Identifier.of(MOD_ID, "main"));
         menuKey = reg("key.hadesclient.menu", GLFW.GLFW_KEY_RIGHT_SHIFT, category);
