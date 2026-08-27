@@ -784,3 +784,4 @@ public final class ClickGui extends UiScreen {
                     theme.stroke().alpha(0.7f * in));
         }
     }
+}
