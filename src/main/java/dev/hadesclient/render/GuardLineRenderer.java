@@ -38,7 +38,7 @@ public final class GuardLineRenderer {
         Matrix4f matrix = matrices.peek().getPositionMatrix();
 
         VertexConsumer consumer = context.consumers()
-                .getBuffer(RenderLayer.getDebugLineStrip(2.0f));
+                .getBuffer(RenderLayer.getLines());
 
         Vec3d cameraPos = context.worldState().cameraRenderState.pos;
 
