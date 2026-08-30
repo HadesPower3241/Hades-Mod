@@ -7,7 +7,6 @@ import dev.hadesclient.config.Config;
 import dev.hadesclient.cooldown.CooldownManager;
 import dev.hadesclient.render.Draw;
 import dev.hadesclient.render.GuardLineRenderer;
-import dev.hadesclient.render.GuardTracerIndicator;
 import dev.hadesclient.render.FontManager;
 import dev.hadesclient.cosmetic.CapeSelectScreen;
 import dev.hadesclient.gui.ClickGui;
@@ -107,7 +106,6 @@ public final class HadesClient implements ClientModInitializer {
 
         CapeFeatureRenderer.register();
         HadesCommand.register();
-        GuardTracerIndicator.register();
         GuardLineRenderer.register();
         
 
