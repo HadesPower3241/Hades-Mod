@@ -1,6 +1,9 @@
 package dev.hadesclient.mixin;
 
 import dev.hadesclient.HadesClient;
+import dev.hadesclient.search.SlotSearchRenderer;
+import dev.hadesclient.search.ItemSearch;
+import dev.hadesclient.search.SearchBar;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
@@ -29,6 +32,15 @@ public abstract class HandledScreenMixin {
 
     @Shadow
     protected Slot focusedSlot;
+
+    @Shadow
+    protected int x;
+
+    @Shadow
+    protected int y;
+
+    @Shadow
+    protected int backgroundWidth;
 
     /**
      * Returns true only for the normal player inventory opened with E.
@@ -64,6 +76,44 @@ public abstract class HandledScreenMixin {
 
                 cir.setReturnValue(true);
             }
+        }
+    }
+
+    /**
+     * Route key presses (backspace, escape) to the search bar when active.
+     */
+    @Inject(
+            method = "keyPressed",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void hadesclient$searchKey(
+            KeyInput input,
+            CallbackInfoReturnable<Boolean> cir
+    ) {
+        if (!ItemSearch.isEnabled()) return;
+        if (SearchBar.handleKey(input)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    /**
+     * Route typed characters into the search bar when the search widget is on.
+     */
+    @Inject(
+            method = "charTyped",
+            at = @At("HEAD"),
+            cancellable = true,
+            require = 0
+    )
+    private void hadesclient$searchChar(
+            net.minecraft.client.input.CharInput input,
+            CallbackInfoReturnable<Boolean> cir
+    ) {
+        if (!ItemSearch.isEnabled()) return;
+        String s = input.asString();
+        if (s != null && !s.isEmpty() && SearchBar.handleString(s)) {
+            cir.setReturnValue(true);
         }
     }
 
@@ -145,6 +195,10 @@ public abstract class HandledScreenMixin {
             int mouseY,
             CallbackInfo ci
     ) {
+        // Search overlay works in EVERY container (inventory, chests,
+        // vaults, auction houses) — not gated behind player inventory.
+        SlotSearchRenderer.render(context, slot, slot.x, slot.y);
+
         if (!hadesclient$isPlayerInventory()) {
             return;
         }
@@ -159,5 +213,24 @@ public abstract class HandledScreenMixin {
                 slot.x,
                 slot.y
         );
+    }
+
+    /**
+     * Draw the search bar just above the open container.
+     */
+    @Inject(
+            method = "render",
+            at = @At("TAIL")
+    )
+    private void hadesclient$renderSearchBar(
+            DrawContext context,
+            int mouseX,
+            int mouseY,
+            float delta,
+            CallbackInfo ci
+    ) {
+        if (!ItemSearch.isEnabled()) return;
+        // Position the bar just above the container background
+        SearchBar.render(context, this.x, this.y, this.backgroundWidth, mouseX, mouseY);
     }
 }

@@ -27,6 +27,7 @@ public final class HudManager {
         register(new JoinLeaveWidget());
         register(new ArmourWidget());
         register(new FpsWidget());
+        register(new SearchWidget());
         register(new CoordsWidget());
         register(new PingWidget());
         register(new ClockWidget());
